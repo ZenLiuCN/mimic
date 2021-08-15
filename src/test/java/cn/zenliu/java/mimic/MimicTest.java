@@ -1,0 +1,198 @@
+package cn.zenliu.java.mimic;
+
+import lombok.val;
+import org.junit.jupiter.api.Test;
+import org.openjdk.jmh.annotations.*;
+import org.openjdk.jmh.infra.Blackhole;
+
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Function;
+
+import static org.junit.jupiter.api.Assertions.*;
+
+public class MimicTest {
+    static HashMap<Class<?>, Mimic.Factory<?>> cache = new HashMap<>();
+    //loader cache simulation
+    final static AtomicReference<Function<Class<?>, Mimic.Factory<?>>> supplier = new AtomicReference<>();
+
+    static {
+        supplier.set(c -> cache.computeIfAbsent(c, supplier.get()));
+    }
+
+    @Mimic.Configuring.Fluent
+    interface Simple extends Mimic<Simple> {
+        Integer integer();
+
+        Simple integer(int integer);
+    }
+
+    @Test
+    void simpleFluent() {
+        val f = Mimic.Factory.factory(Simple.class, supplier.get());
+        val instance = f.build(null);
+        instance.integer(1);
+        val m = instance.underlyingMap();
+        m.put(2, 3);
+        assertEquals(1, instance.integer());
+        assertEquals(m, instance.integer(2).underlyingMap());
+        assertEquals(new ArrayList<>(Collections.singletonList("integer")), instance.underlyingNaming());
+        assertEquals(Simple.class.getSimpleName() + "@" + instance.hashCode() + "@" + m.toString(), instance.toString());
+        assertEquals(Simple.class, instance.underlyingType());
+        assertNotEquals(f.build(null).integer(2), instance);
+        m.remove(2);
+        assertEquals(f.build(null).integer(2), instance);
+    }
+
+    interface SimpleBean extends Mimic<SimpleBean> {
+        Integer getInteger();
+
+        SimpleBean setInteger(Integer integer);
+    }
+
+    @Test
+    void simpleJavaBean() {
+        val f = Mimic.Factory.factory(SimpleBean.class, supplier.get());
+        val instance = f.build(null);
+        instance.setInteger(1);
+        val m = instance.underlyingMap();
+        m.put(2, 3);
+        assertEquals(1, instance.getInteger());
+        assertEquals(m, instance.setInteger(2).underlyingMap());
+        assertEquals(new ArrayList<>(Collections.singletonList("integer")), instance.underlyingNaming());
+        assertEquals(SimpleBean.class.getSimpleName() + "@" + instance.hashCode() + "@" + m.toString(), instance.toString());
+        assertEquals(SimpleBean.class, instance.underlyingType());
+        assertNotEquals(f.build(null).setInteger(2), instance);
+        m.remove(2);
+        assertEquals(f.build(null).setInteger(2), instance);
+    }
+
+    @Mimic.Configuring.Fluent
+    interface SimpleValidate extends Mimic<SimpleValidate> {
+        Validating.Validator<Integer> validate = i -> i != null && i > 0;
+
+        Integer integer();
+
+        @Validating.Validate(value = SimpleValidate.class, message = "must positive")
+        SimpleValidate integer(int integer);
+    }
+
+    @Test
+    void simpleValidate() {
+        val f = Mimic.Factory.factory(SimpleValidate.class, supplier.get());
+        val instance = f.build(null);
+        instance.integer(1);
+        val m = instance.underlyingMap();
+        m.put(2, 3);
+        assertEquals(1, instance.integer());
+        assertEquals(m, instance.integer(2).underlyingMap());
+        assertEquals(new ArrayList<>(Collections.singletonList("integer")), instance.underlyingNaming());
+        assertEquals(SimpleValidate.class.getSimpleName() + "@" + instance.hashCode() + "@" + m.toString(), instance.toString());
+        assertEquals(SimpleValidate.class, instance.underlyingType());
+        assertNotEquals(f.build(null).integer(2), instance);
+        m.remove(2);
+        assertEquals(f.build(null).integer(2), instance);
+        assertThrows(IllegalArgumentException.class, () -> {
+            try {
+                instance.integer(-2);
+            } catch (Exception e) {
+                // e.printStackTrace();
+                throw e;
+            }
+        });
+        assertDoesNotThrow(instance::validate);
+    }
+
+    @Mimic.Configuring.Fluent
+    @Mimic.Converting.Converter(value = Integer.class, holder = SimpleConvValidate.class)
+    interface SimpleConvValidate extends Mimic<SimpleConvValidate> {
+        Validating.Validator<Integer> validate = i -> i != null && i > 0;
+        //        Converting.Deserialize<Integer> deserialize=i-> i == Converting.NULL ?null:Integer.parseInt(new String(i),16);
+//        Converting.Serialize<Integer> serialize=i->i==null?Converting.NULL:Integer.toHexString(i).getBytes(StandardCharsets.UTF_8);
+        Converting.Deserialize<Integer> deserialize = i -> i.equals(Converting.NULL) ? null : Integer.parseInt(i, 16);
+        Converting.Serialize<Integer> serialize = i -> i == null ? Converting.NULL : Integer.toHexString(i);
+
+        Integer integer();
+
+        @Validating.Validate(value = SimpleConvValidate.class, message = "must positive")
+        SimpleConvValidate integer(int integer);
+    }
+
+    @Test
+    void converterValidate() {
+        val f = Mimic.Factory.factory(SimpleConvValidate.class, supplier.get());
+        val instance = f.build(null);
+        instance.integer(1);
+        val m = instance.underlyingMap();
+        m.put(2, 3);
+        assertEquals(1, instance.integer());
+        assertEquals(m, instance.integer(2).underlyingMap());
+        assertEquals(new ArrayList<>(Collections.singletonList("integer")), instance.underlyingNaming());
+        assertEquals(SimpleConvValidate.class.getSimpleName() + "@" + instance.hashCode() + "@" + m.toString(), instance.toString());
+        assertEquals(SimpleConvValidate.class, instance.underlyingType());
+        assertNotEquals(f.build(null).integer(2), instance);
+        m.remove(2);
+        //TODO bytes dose not equal:
+        // option one: use String <- current choose
+        // option two: just not equal
+        assertEquals(f.build(null).integer(2), instance);
+        assertThrows(IllegalArgumentException.class, () -> {
+            try {
+                instance.integer(-2);
+            } catch (Exception e) {
+                // e.printStackTrace();
+                throw e;
+            }
+        });
+        assertDoesNotThrow(instance::validate);
+    }
+
+/*    @Test
+    void benchmark() throws RunnerException {
+        Options opt = new OptionsBuilder()
+                // Specify which benchmarks to run.
+                // You can be more specific if you'd like to run only one benchmark per test.
+                .include(this.getClass().getName() + ".*")
+                // Set the following options as needed
+                .mode(Mode.AverageTime)
+                .timeUnit(TimeUnit.MICROSECONDS)
+                .warmupTime(TimeValue.seconds(1))
+                .warmupIterations(2)
+                .measurementTime(TimeValue.seconds(1))
+                .measurementIterations(2)
+                .threads(2)
+                .forks(1)
+                .shouldFailOnError(true)
+                .shouldDoGC(true)
+                //.jvmArgs("-XX:+UnlockDiagnosticVMOptions", "-XX:+PrintInlining")
+                //.addProfiler(WinPerfAsmProfiler.class)
+                .build();
+
+        new Runner(opt).run();
+    }*/
+
+    @State(Scope.Thread)
+    public static class BenchmarkState {
+        Function<Class<?>, Mimic.Factory<?>> supplier;
+
+        @Setup(Level.Trial)
+        public void
+        initialize() {
+            supplier = c -> Mimic.Factory.factory((Class) c, supplier);
+        }
+    }
+
+    @Warmup(iterations = 2, timeUnit = TimeUnit.MILLISECONDS, batchSize = 3)
+    @OutputTimeUnit(TimeUnit.MICROSECONDS)
+    @Fork(value = 2)
+    @Measurement(iterations = 2, time = 300, timeUnit = TimeUnit.MILLISECONDS)
+    @OperationsPerInvocation(100)
+    @Benchmark
+    public void factory(BenchmarkState state, Blackhole bh) {
+        for (int i = 0; i < 100; i++)
+            bh.consume(Mimic.Factory.factory(SimpleConvValidate.class, state.supplier));
+    }
+}
