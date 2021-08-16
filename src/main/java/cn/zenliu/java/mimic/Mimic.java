@@ -726,18 +726,18 @@ public interface Mimic<T extends Mimic<T>> {
                             }
                             return tuple(f, getter, v);
                         })
-                        .groupBy(Tuple3::v1);
-                val valiator = seq(validators)
-                        .map(t -> {
-                            Tuple3<String, Boolean, Validator> tx = null;
-                            for (Tuple3<String, Boolean, Validator> tu : t.v2) {
-                                if (!tu.v2 && tu.v3 != null) return tuple(t.v1, tu.v3);
-                                tx = tu;
-                            }
-                            return tx == null ? null : tx.v3 == null ? null : tuple(t.v1, tx.v3);
-                        })
-                        .filter(Objects::nonNull)
-                        .toMap(Tuple2::v1, Tuple2::v2);
+                    .groupBy(Tuple3::v1);
+                val validator = seq(validators)
+                    .map(t -> {
+                        Tuple3<String, Boolean, Validator> tx = null;
+                        for (Tuple3<String, Boolean, Validator> tu : t.v2) {
+                            if (!tu.v2 && tu.v3 != null) return tuple(t.v1, tu.v3);
+                            tx = tu;
+                        }
+                        return tx == null ? null : tx.v3 == null ? null : tuple(t.v1, tx.v3);
+                    })
+                    .filter(Objects::nonNull)
+                    .toMap(Tuple2::v1, Tuple2::v2);
                 val numbers = seq(gs)
                         .sorted(Method::getName)
                         .zipWithIndex()
@@ -768,13 +768,14 @@ public interface Mimic<T extends Mimic<T>> {
                 val fields = new ArrayList<String>(fieldNumber.size());
                 fieldNumber.forEach((n, i) -> fields.add(i, n));
                 if (fields.size() != fieldNumber.size()) throw new IllegalStateException("field number duplicated");
+
                 final Validation[] vali = new Validation[]{null};
                 val getset = seq(fields)
                         .zipWithIndex()
                         .map(t -> {
                             val f = t.v1;
                             val con = conv.get(f);
-                            val val = valiator.get(f);
+                            val val = validator.get(f);
                             val chain = chained.contains(f);
                             val n = (int) (long) t.v2;
                             Setter set;

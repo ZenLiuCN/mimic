@@ -4,6 +4,10 @@ import lombok.val;
 import org.junit.jupiter.api.Test;
 import org.openjdk.jmh.annotations.*;
 import org.openjdk.jmh.infra.Blackhole;
+import org.openjdk.jmh.runner.Runner;
+import org.openjdk.jmh.runner.RunnerException;
+import org.openjdk.jmh.runner.options.OptionsBuilder;
+import org.openjdk.jmh.runner.options.TimeValue;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -150,29 +154,34 @@ public class MimicTest {
         assertDoesNotThrow(instance::validate);
     }
 
-/*    @Test
+    /**
+     * execute benchmark via junit
+     */
+    @Test
     void benchmark() throws RunnerException {
-        Options opt = new OptionsBuilder()
-                // Specify which benchmarks to run.
-                // You can be more specific if you'd like to run only one benchmark per test.
-                .include(this.getClass().getName() + ".*")
-                // Set the following options as needed
-                .mode(Mode.AverageTime)
-                .timeUnit(TimeUnit.MICROSECONDS)
-                .warmupTime(TimeValue.seconds(1))
-                .warmupIterations(2)
-                .measurementTime(TimeValue.seconds(1))
-                .measurementIterations(2)
-                .threads(2)
-                .forks(1)
-                .shouldFailOnError(true)
-                .shouldDoGC(true)
-                //.jvmArgs("-XX:+UnlockDiagnosticVMOptions", "-XX:+PrintInlining")
-                //.addProfiler(WinPerfAsmProfiler.class)
-                .build();
+        new Runner(new OptionsBuilder()
+            .include(this.getClass().getName() + ".benchmark*")
 
-        new Runner(opt).run();
-    }*/
+            .mode(Mode.AverageTime)
+            .timeUnit(TimeUnit.MICROSECONDS)
+
+            .warmupTime(TimeValue.seconds(1))
+            .warmupIterations(2)
+
+            .measurementTime(TimeValue.microseconds(1))
+            .measurementIterations(2)
+
+            .threads(2)
+            .forks(1)
+
+            .shouldFailOnError(true)
+            .shouldDoGC(true)
+
+            //.jvmArgs("-XX:+UnlockDiagnosticVMOptions", "-XX:+PrintInlining")
+            //.addProfiler(WinPerfAsmProfiler.class)
+
+            .build()).run();
+    }
 
     @State(Scope.Thread)
     public static class BenchmarkState {
@@ -181,17 +190,21 @@ public class MimicTest {
         @Setup(Level.Trial)
         public void
         initialize() {
+            //noinspection unchecked
             supplier = c -> Mimic.Factory.factory((Class) c, supplier);
         }
     }
 
-    @Warmup(iterations = 2, timeUnit = TimeUnit.MILLISECONDS, batchSize = 3)
+    /**
+     * annotations for directly invoked with IDE plugins
+     */
+    @Warmup(iterations = 2, batchSize = 3, time = 1, timeUnit = TimeUnit.SECONDS)
     @OutputTimeUnit(TimeUnit.MICROSECONDS)
     @Fork(value = 2)
     @Measurement(iterations = 2, time = 300, timeUnit = TimeUnit.MILLISECONDS)
     @OperationsPerInvocation(100)
     @Benchmark
-    public void factory(BenchmarkState state, Blackhole bh) {
+    public void benchmarkFactory(BenchmarkState state, Blackhole bh) {
         for (int i = 0; i < 100; i++)
             bh.consume(Mimic.Factory.factory(SimpleConvValidate.class, state.supplier));
     }
