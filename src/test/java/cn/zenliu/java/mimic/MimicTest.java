@@ -224,7 +224,8 @@ public class MimicTest {
 
     }
 
-    public static void main(String[] args) {
+    @Test
+    void testInherit() {
         val f = Mimic.Factory.factory(SimpleValidateInherit.class, supplier.get());
         System.out.println(f);
         val instance = f.build(null);
