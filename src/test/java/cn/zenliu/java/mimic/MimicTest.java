@@ -27,7 +27,7 @@ public class MimicTest {
         supplier.set(c -> cache.computeIfAbsent(c, supplier.get()));
     }
 
-    @Mimic.Configuring.Fluent
+    @Mimic.Configuring.Mimicked(fluent = true)
     interface Simple extends Mimic<Simple> {
         Integer integer();
 
@@ -51,6 +51,7 @@ public class MimicTest {
         assertEquals(f.build(null).integer(2), instance);
     }
 
+    @Mimic.Configuring.Mimicked
     interface SimpleBean extends Mimic<SimpleBean> {
         Integer getInteger();
 
@@ -74,7 +75,7 @@ public class MimicTest {
         assertEquals(f.build(null).setInteger(2), instance);
     }
 
-    @Mimic.Configuring.Fluent
+    @Mimic.Configuring.Mimicked(fluent = true)
     interface SimpleValidate extends Mimic<SimpleValidate> {
         Validating.Validator<Integer> validate = i -> i != null && i > 0;
 
@@ -110,7 +111,7 @@ public class MimicTest {
         assertDoesNotThrow(instance::validate);
     }
 
-    @Mimic.Configuring.Fluent
+    @Mimic.Configuring.Mimicked(fluent = true)
     @Mimic.Converting.Converter(value = Integer.class, holder = SimpleConvValidate.class)
     interface SimpleConvValidate extends Mimic<SimpleConvValidate> {
         Validating.Validator<Integer> validate = i -> i != null && i > 0;
@@ -207,5 +208,51 @@ public class MimicTest {
     public void benchmarkFactory(BenchmarkState state, Blackhole bh) {
         for (int i = 0; i < 100; i++)
             bh.consume(Mimic.Factory.factory(SimpleConvValidate.class, state.supplier));
+    }
+
+
+    @Mimic.Configuring.Mimicked
+    @Mimic.Converting.Converter(value = Integer.class, holder = SimpleConvValidate.class)
+    interface SimpleConvertedValidated<T extends SimpleConvertedValidated<T>> extends Mimic<T> {
+        Integer integer();
+
+        @Validating.Validate(value = SimpleValidate.class, message = "must positive")
+        T integer(int integer);
+    }
+
+    interface SimpleValidateInherit extends SimpleConvertedValidated<SimpleValidateInherit> {
+
+    }
+
+    public static void main(String[] args) {
+        val f = Mimic.Factory.factory(SimpleValidateInherit.class, supplier.get());
+        System.out.println(f);
+        val instance = f.build(null);
+        instance.integer(1);
+        val m = instance.underlyingMap();
+        m.put(2, 3);
+        assertEquals(1, instance.integer());
+        assertEquals(m, instance.integer(2).underlyingMap());
+        assertEquals(new ArrayList<>(Collections.singletonList("integer")), instance.underlyingNaming());
+        assertEquals(SimpleValidateInherit.class.getSimpleName() + "@" + instance.hashCode() + "@" + m.toString(), instance.toString());
+        assertEquals(SimpleValidateInherit.class, instance.underlyingType());
+        assertNotEquals(f.build(null).integer(2), instance);
+        m.remove(2);
+        assertEquals(f.build(null).integer(2), instance);
+        assertThrows(IllegalArgumentException.class, () -> {
+            try {
+                instance.integer(-2);
+            } catch (Exception e) {
+                // e.printStackTrace();
+                throw e;
+            }
+        });
+        assertDoesNotThrow(instance::validate);
+
+       /* Seq.of(SimpleValidateInherit.class.getMethods())
+            .forEach(m->{
+                System.out.println(m+":"+Arrays.toString(m.getAnnotations()));
+            });
+        System.out.println(Arrays.toString(SimpleValidateInherit.class.getAnnotations()));*/
     }
 }

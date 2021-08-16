@@ -2,6 +2,7 @@ package cn.zenliu.java.mimic;
 
 import jdk.nashorn.internal.ir.annotations.Immutable;
 import lombok.SneakyThrows;
+import lombok.ToString;
 import lombok.val;
 import lombok.var;
 import org.jetbrains.annotations.ApiStatus;
@@ -12,6 +13,7 @@ import org.jooq.lambda.function.Function4;
 import org.jooq.lambda.tuple.Tuple;
 import org.jooq.lambda.tuple.Tuple2;
 import org.jooq.lambda.tuple.Tuple3;
+import sun.reflect.CallerSensitive;
 import sun.reflect.generics.reflectiveObjects.NotImplementedException;
 
 import java.lang.annotation.*;
@@ -27,8 +29,13 @@ import static org.jooq.lambda.Seq.seq;
 import static org.jooq.lambda.tuple.Tuple.tuple;
 
 /**
- * Mimic is a Protocol to use Map as Underlying storage for a interface.<br/>
- * <p> 1. all field should naming match JavaBean or Fluent definition. default use JavaBean protocol, which can use {@link Configuring.Fluent} to switch into Fluent mode.
+ * Mimic is a Protocol to use Map as Underlying storage for a interface.which must satisfied: <br/>
+ * <p> a: Must a Interface.
+ * <p> b: Must annotated with {@link Configuring.Mimicked}, or inherited from a Interface is annotated with {@link Configuring.Mimicked}.
+ * <p> c: Optional to extends from {@link Mimic}, which supported with underlying methods. User can just directly define one or more underlying methods with same signature of each as default methods.
+ * <p> d: {@link Mimic#underlyingInstance()} is required when there have one or more Setter match Chain protocol (which return self when called).
+ * <p><b>Features:</b>
+ * <p> 1. all field should naming match JavaBean or Fluent definition. default use JavaBean protocol, which can use {@link Configuring.Mimicked#fluent()} to switch into Fluent mode.
  * <p> 2. operation methods should defined as default methods.
  * <p> 3. use {@link Configuring} annotations to configure the Mimic.
  * <p> 4. use {@link Converting} annotations to define value convert.
@@ -36,22 +43,25 @@ import static org.jooq.lambda.tuple.Tuple.tuple;
  * <p> 6. use {@link Validating} annotations to define value validate, which will effect on setter is called or {@link Mimic#validate()} is called.
  * <p><b>NOTE:</b> carefully to use a Mimic type nesting in fields, this may cause a loop dependency or slowdown the efficiency.
  *
+ * @param <T> type of final interface, which will be the returning value of a Chain Setter.
  * @author Zen.Liu
  * @apiNote
  * @since 2021-08-12
  */
+
+
 @SuppressWarnings("unused")
-public interface Mimic<T extends Mimic<T>> {
+public interface Mimic<T> {
     /**
      * all underlying method names
      */
     @ApiStatus.Internal
     List<String> underlyingNames = Arrays.asList(
-            "underlyingMap",
-            "underlyingNaming",
-            "signature",
-            "underlyingType",
-            "underlyingInstance"
+        "underlyingMap",
+        "underlyingNaming",
+        "signature",
+        "underlyingType",
+        "underlyingInstance"
     );
 
     /**
@@ -295,156 +305,156 @@ public interface Mimic<T extends Mimic<T>> {
                     return tuple(o[0]);
                 case 2:
                     return tuple(
-                            o[0],
-                            o[1]);
+                        o[0],
+                        o[1]);
                 case 3:
                     return tuple(o[0],
-                            o[1],
-                            o[2]);
+                        o[1],
+                        o[2]);
                 case 4:
                     return tuple(o[0],
-                            o[1],
-                            o[2],
-                            o[3]);
+                        o[1],
+                        o[2],
+                        o[3]);
                 case 5:
                     return tuple(o[0],
-                            o[1],
-                            o[2],
-                            o[3],
-                            o[4]);
+                        o[1],
+                        o[2],
+                        o[3],
+                        o[4]);
                 case 6:
                     return tuple(o[0],
-                            o[1],
-                            o[2],
-                            o[3],
-                            o[4],
-                            o[5]);
+                        o[1],
+                        o[2],
+                        o[3],
+                        o[4],
+                        o[5]);
                 case 7:
                     return tuple(o[0],
-                            o[1],
-                            o[2],
-                            o[3],
-                            o[4],
-                            o[5],
-                            o[6]);
+                        o[1],
+                        o[2],
+                        o[3],
+                        o[4],
+                        o[5],
+                        o[6]);
                 case 8:
                     return tuple(o[0],
-                            o[1],
-                            o[2],
-                            o[3],
-                            o[4],
-                            o[5],
-                            o[6],
-                            o[7]);
+                        o[1],
+                        o[2],
+                        o[3],
+                        o[4],
+                        o[5],
+                        o[6],
+                        o[7]);
                 case 9:
                     return tuple(o[0],
-                            o[1],
-                            o[2],
-                            o[3],
-                            o[4],
-                            o[5],
-                            o[6],
-                            o[7],
-                            o[8]);
+                        o[1],
+                        o[2],
+                        o[3],
+                        o[4],
+                        o[5],
+                        o[6],
+                        o[7],
+                        o[8]);
                 case 10:
                     return tuple(o[0],
-                            o[1],
-                            o[2],
-                            o[3],
-                            o[4],
-                            o[5],
-                            o[6],
-                            o[7],
-                            o[8],
-                            o[9]);
+                        o[1],
+                        o[2],
+                        o[3],
+                        o[4],
+                        o[5],
+                        o[6],
+                        o[7],
+                        o[8],
+                        o[9]);
                 case 11:
                     return tuple(o[0],
-                            o[1],
-                            o[2],
-                            o[3],
-                            o[4],
-                            o[5],
-                            o[6],
-                            o[7],
-                            o[8],
-                            o[9],
-                            o[10]);
+                        o[1],
+                        o[2],
+                        o[3],
+                        o[4],
+                        o[5],
+                        o[6],
+                        o[7],
+                        o[8],
+                        o[9],
+                        o[10]);
                 case 12:
                     return tuple(o[0],
-                            o[1],
-                            o[2],
-                            o[3],
-                            o[4],
-                            o[5],
-                            o[6],
-                            o[7],
-                            o[8],
-                            o[9],
-                            o[10],
-                            o[11]);
+                        o[1],
+                        o[2],
+                        o[3],
+                        o[4],
+                        o[5],
+                        o[6],
+                        o[7],
+                        o[8],
+                        o[9],
+                        o[10],
+                        o[11]);
                 case 13:
                     return tuple(o[0],
-                            o[1],
-                            o[2],
-                            o[3],
-                            o[4],
-                            o[5],
-                            o[6],
-                            o[7],
-                            o[8],
-                            o[9],
-                            o[10],
-                            o[11],
-                            o[12]);
+                        o[1],
+                        o[2],
+                        o[3],
+                        o[4],
+                        o[5],
+                        o[6],
+                        o[7],
+                        o[8],
+                        o[9],
+                        o[10],
+                        o[11],
+                        o[12]);
                 case 14:
                     return tuple(o[0],
-                            o[1],
-                            o[2],
-                            o[3],
-                            o[4],
-                            o[5],
-                            o[6],
-                            o[7],
-                            o[8],
-                            o[9],
-                            o[10],
-                            o[11],
-                            o[12],
-                            o[13]);
+                        o[1],
+                        o[2],
+                        o[3],
+                        o[4],
+                        o[5],
+                        o[6],
+                        o[7],
+                        o[8],
+                        o[9],
+                        o[10],
+                        o[11],
+                        o[12],
+                        o[13]);
                 case 15:
                     return tuple(o[0],
-                            o[1],
-                            o[2],
-                            o[3],
-                            o[4],
-                            o[5],
-                            o[6],
-                            o[7],
-                            o[8],
-                            o[9],
-                            o[10],
-                            o[11],
-                            o[12],
-                            o[13],
-                            o[14]);
+                        o[1],
+                        o[2],
+                        o[3],
+                        o[4],
+                        o[5],
+                        o[6],
+                        o[7],
+                        o[8],
+                        o[9],
+                        o[10],
+                        o[11],
+                        o[12],
+                        o[13],
+                        o[14]);
                 case 16:
                     return tuple(
-                            o[0],
-                            o[1],
-                            o[2],
-                            o[3],
-                            o[4],
-                            o[5],
-                            o[6],
-                            o[7],
-                            o[8],
-                            o[9],
-                            o[10],
-                            o[11],
-                            o[12],
-                            o[13],
-                            o[14],
-                            o[15]);
+                        o[0],
+                        o[1],
+                        o[2],
+                        o[3],
+                        o[4],
+                        o[5],
+                        o[6],
+                        o[7],
+                        o[8],
+                        o[9],
+                        o[10],
+                        o[11],
+                        o[12],
+                        o[13],
+                        o[14],
+                        o[15]);
                 default:
                     throw new IllegalStateException("tuple degree should never more than 16!");
 
@@ -464,32 +474,32 @@ public interface Mimic<T extends Mimic<T>> {
                 assert fn != null;
                 if (List.class.isAssignableFrom(type)) {
                     return new Factory.Processor[]{
-                            x -> x == null ? null : seq((Collection<Map<Integer, Object>>) x).map(fn::innerBuild).toList(),
-                            x -> x == null ? null : seq((Collection<Mimic<?>>) x).map(Mimic::underlyingMap).toList()
+                        x -> x == null ? null : seq((Collection<Map<Integer, Object>>) x).map(fn::innerBuild).toList(),
+                        x -> x == null ? null : seq((Collection<Mimic<?>>) x).map(Mimic::underlyingMap).toList()
                     };
                 } else if (Set.class.isAssignableFrom(type)) {
                     return new Factory.Processor[]{
-                            x -> x == null ? null : seq((Set<Map<Integer, Object>>) x).map(fn::innerBuild).toSet(),
-                            x -> x == null ? null : seq((Collection<Mimic<?>>) x).map(Mimic::underlyingMap).toSet()
+                        x -> x == null ? null : seq((Set<Map<Integer, Object>>) x).map(fn::innerBuild).toSet(),
+                        x -> x == null ? null : seq((Collection<Mimic<?>>) x).map(Mimic::underlyingMap).toSet()
                     };
                 } else throw new IllegalStateException("unsupported container type: " + type);
             } else if (Map.class.isAssignableFrom(type) && anon.size() == 1) {
                 val fn = supplier.apply(anon.get(0).value());
                 assert fn != null;
                 return new Factory.Processor[]{
-                        x -> x == null ? null : seq((Map<Object, Map<Integer, Object>>) x)
-                                .map(e -> e.map2(fn::innerBuild))
-                                .toMap(Tuple2::v1, Tuple2::v2),
-                        x -> x == null ? null : seq((Map<Object, Mimic<?>>) x)
-                                .map(e -> e.map2(Mimic::underlyingMap))
-                                .toMap(Tuple2::v1, Tuple2::v2)
+                    x -> x == null ? null : seq((Map<Object, Map<Integer, Object>>) x)
+                        .map(e -> e.map2(fn::innerBuild))
+                        .toMap(Tuple2::v1, Tuple2::v2),
+                    x -> x == null ? null : seq((Map<Object, Mimic<?>>) x)
+                        .map(e -> e.map2(Mimic::underlyingMap))
+                        .toMap(Tuple2::v1, Tuple2::v2)
                 };
             } else if (Tuple.class.isAssignableFrom(type)) {
                 val fns = seq(anon)
-                        .map(c -> tuple(
-                                Objects.requireNonNull(supplier.apply(c.value()), "mimic factory not generated for " + c),
-                                c.inTuple()))
-                        .toMap(Tuple2::v2, Tuple2::v1);
+                    .map(c -> tuple(
+                        Objects.requireNonNull(supplier.apply(c.value()), "mimic factory not generated for " + c),
+                        c.inTuple()))
+                    .toMap(Tuple2::v2, Tuple2::v1);
                 final Function<Object[], Tuple> pop = x -> {
                     for (int i = 0; i < x.length; i++) {
                         val fn = fns.get(i);
@@ -509,8 +519,8 @@ public interface Mimic<T extends Mimic<T>> {
                     return ar;
                 };
                 return new Factory.Processor[]{
-                        x -> x == null ? null : pop.apply((Object[]) x),
-                        x -> x == null ? null : push.apply((Tuple) x)
+                    x -> x == null ? null : pop.apply((Object[]) x),
+                    x -> x == null ? null : push.apply((Tuple) x)
                 };
             } else throw new IllegalStateException("unknown container with annotation:" + anon + " =>" + type);
         }
@@ -520,6 +530,151 @@ public interface Mimic<T extends Mimic<T>> {
      * element use to configure the behavior of Mimic
      */
     interface Configuring {
+        @ToString
+        final class ClassObj<T> {
+            public boolean isAssignableFrom(Class<?> returnType) {
+                return returnType == type || seq(interfaces)
+                    // T return is as the interface it self in reflection.
+                    .anyMatch(x -> x.type != Mimic.class && x.type.isAssignableFrom(returnType));
+            }
+
+            @ToString
+            static final class ClassElement<T> {
+                public boolean isInterface() {
+                    return type.isInterface();
+                }
+
+                public String getName() {
+                    return type.getName();
+                }
+
+                public int getModifiers() {
+                    return type.getModifiers();
+                }
+
+
+                public String getSimpleName() {
+                    return type.getSimpleName();
+                }
+
+                public String getTypeName() {
+                    return type.getTypeName();
+                }
+
+                public String getCanonicalName() {
+                    return type.getCanonicalName();
+                }
+
+                @CallerSensitive
+                public Method[] getMethods() throws SecurityException {
+                    return type.getMethods();
+                }
+
+                final Class<T> type;
+                final int level;
+
+                ClassElement(Class<T> type, int level) {
+                    this.type = type;
+                    this.level = level;
+                }
+            }
+
+            public String getName() {
+                return type.getName();
+            }
+
+            public String getSimpleName() {
+                return type.getSimpleName();
+            }
+
+            public String getTypeName() {
+                return type.getTypeName();
+            }
+
+            public String getCanonicalName() {
+                return type.getCanonicalName();
+            }
+
+            public List<Method> getMethods() {
+                return Seq.of(type.getMethods())
+                    .concat(Seq
+                        .seq(interfaces)
+                        .flatMap(x -> Seq.of(x.getMethods()))
+                    ).distinct()
+                    .toList();
+            }
+
+            /**
+             * all declared methods which is not default and must public
+             *
+             * @param filter filter
+             */
+            public List<Method> getDeclareMethods(Predicate<Method> filter) {
+                return Seq.of(type.getMethods())
+                    .concat(Seq
+                        .seq(interfaces)
+                        .flatMap(x -> Seq.of(x.getMethods()))
+                    ).distinct()
+                    .filter(x -> !x.isDefault() && Modifier.isPublic(x.getModifiers()))
+                    .filter(filter)
+                    .toList();
+            }
+
+            /**
+             * direct annotations means annotation which are directly annotated on the type or on supper interfaces.
+             */
+            public <A extends Annotation> List<A> directAnnotatedOf(Class<A> type) {
+                val lst = new ArrayList<>(Arrays.asList(this.type.getAnnotationsByType(type)));
+                interfaces.forEach(i -> lst.addAll(Arrays.asList(i.type.getAnnotationsByType(type))));
+                return lst;
+
+            }
+
+            /**
+             * annotation includes those is annotated on annotation( only one level supported).
+             *
+             * @param type target annotation type
+             * @param <A>  annotation type
+             */
+            public <A extends Annotation> List<A> annotatedOf(Class<A> type) {
+                val lst = directAnnotatedOf(type);
+                Seq.seq(interfaces)
+                    .flatMap(x -> Seq.of(x.type.getAnnotations()))
+                    .concat(Seq.of(this.type.getAnnotations()))
+                    .flatMap(ann -> Seq.of(ann.annotationType().getAnnotationsByType(type)))
+                    .forEach(lst::add);
+                return lst;
+            }
+
+            final Class<T> type;
+            final List<ClassElement<?>> interfaces;
+
+            public ClassObj(Class<T> type) {
+                this.type = type;
+                this.interfaces = deflate(type);
+            }
+
+            static List<ClassElement<?>> deflate(Class<?> type) {
+                val classes = new ArrayList<ClassElement<?>>();
+                var level = 0;
+                val targets = new ArrayList<>(Arrays.asList(type.getInterfaces()));
+                while (!targets.isEmpty()) {
+                    val next = new ArrayList<Class<?>>();
+                    for (Class<?> target : targets) {
+                        classes.add(new ClassElement<>(target, level));
+                        next.addAll(Arrays.asList(target.getInterfaces()));
+                    }
+                    targets.clear();
+                    targets.addAll(next);
+                    level++;
+                }
+                return classes;
+            }
+
+
+        }
+
+
         /**
          * Mark the type use fluent getter|setter strategy.
          */
@@ -527,17 +682,10 @@ public interface Mimic<T extends Mimic<T>> {
         @Documented
         @Target(ElementType.TYPE)
         @Inherited
-        @interface Fluent {
-        }
+        @interface Mimicked {
+            boolean fluent() default false;
 
-        /**
-         * Mark this underlying map should be a concurrent map
-         */
-        @Retention(RetentionPolicy.RUNTIME)
-        @Documented
-        @Target(ElementType.TYPE)
-        @Inherited
-        @interface Concurrent {
+            boolean concurrent() default false;
         }
 
         /**
@@ -557,7 +705,7 @@ public interface Mimic<T extends Mimic<T>> {
      *
      * @param <T> type
      */
-    interface Factory<T extends Mimic<T>> {
+    interface Factory<T> {
         /**
          * @param map a FieldNumber => Value Map as Underlying storage.
          * @return a Instance
@@ -589,7 +737,7 @@ public interface Mimic<T extends Mimic<T>> {
                 if (accessible instanceof Member) {
                     val member = (Member) accessible;
                     if (Modifier.isPublic(member.getModifiers()) &&
-                            Modifier.isPublic(member.getDeclaringClass().getModifiers())) {
+                        Modifier.isPublic(member.getDeclaringClass().getModifiers())) {
                         return accessible;
                     }
                 }
@@ -600,111 +748,117 @@ public interface Mimic<T extends Mimic<T>> {
             }
 
             static Map<Class<?>, Tuple2<Converting.Deserialize<Object>, Converting.Serialize<Object>>>
-            converters(Class<?> type) {
+            converters(Configuring.ClassObj<?> type) {
                 return Seq
-                        .of(type.getAnnotationsByType(Converting.Converter.class))
-                        .map(Converting::extract)
-                        .toMap(Tuple2::v1, Tuple2::v2);
+                    .seq(type.directAnnotatedOf(Converting.Converter.class))//direct annotation
+                    .map(Converting::extract)
+                    .toMap(Tuple2::v1, Tuple2::v2);
             }
 
-            static List<Method> methods(Predicate<Method> filter, Class<?> type) {
-                return Seq.of(type.getMethods())
-                        .filter(filter)
-                        .toList();
-            }
 
             //(field =>(getter,setter) (type converting)
             @SuppressWarnings("unchecked")
             static Map<String, Processor[]> processors(
-                    List<Method> methods,
-                    Function<Method, String> fieldName,
-                    ConverterSupplier converterSupplier,
-                    FactorySupplier factorySupplier
+                List<Method> methods,
+                Function<Method, String> fieldName,
+                ConverterSupplier converterSupplier,
+                FactorySupplier factorySupplier
             ) {
                 val mx = seq(methods)
-                        .map(m -> {
-                            final String f = fieldName.apply(m);
-                            final boolean isGetter = m.getParameterCount() == 0;
-                            final Class<?> typing = isGetter ? m.getReturnType() : m.getParameterTypes()[0];
-                            //simple mimic type
-                            if (Mimic.class.isAssignableFrom(typing)) {
-                                val fn = factorySupplier.apply(typing);
-                                return Tuple.tuple(f, isGetter,
-                                        new Processor[]{
-                                                //for getter
-                                                x -> x == null ? null : fn.innerBuild((Map<Integer, Object>) x),
-                                                x -> x == null ? null : ((Mimic<?>) x).underlyingMap()
-                                                //for setter
-                                        }
-                                );
-                            }
-                            //is a Converter type
-                            val cc = converterSupplier.apply(typing);
-                            if (cc != null) {
-                                return Tuple.tuple(f, isGetter,
-                                        new Processor[]{
-                                                //getter
-                                                x -> cc.v1.proc(x == null ? Converting.NULL : (String) x),
-                                                cc.v2::proc
-                                                //for setter
+                    .map(m -> {
+                        final String f = fieldName.apply(m);
+                        final boolean isGetter = m.getParameterCount() == 0;
+                        final Class<?> typing = isGetter ? m.getReturnType() : m.getParameterTypes()[0];
+                        //simple mimic type
+                        if (Mimic.class.isAssignableFrom(typing)) {
+                            val fn = factorySupplier.apply(typing);
+                            return Tuple.tuple(f, isGetter,
+                                new Processor[]{
+                                    //for getter
+                                    x -> x == null ? null : fn.innerBuild((Map<Integer, Object>) x),
+                                    x -> x == null ? null : ((Mimic<?>) x).underlyingMap()
+                                    //for setter
+                                }
+                            );
+                        }
+                        //is a Converter type
+                        val cc = converterSupplier.apply(typing);
+                        if (cc != null) {
+                            return Tuple.tuple(f, isGetter,
+                                new Processor[]{
+                                    //getter
+                                    x -> cc.v1.proc(x == null ? Converting.NULL : (String) x),
+                                    cc.v2::proc
+                                    //for setter
 
-                                        });
-                            }
-                            //is a Container
-                            final Processor[] p = Containing.extract(m, factorySupplier);
-                            if (p != null) return Tuple.tuple(f, isGetter, p);
-                            return null;
-                        })
-                        .filter(Objects::nonNull)
-                        .groupBy(t -> t.v1);
+                                });
+                        }
+                        //is a Container
+                        final Processor[] p = Containing.extract(m, factorySupplier);
+                        if (p != null) return Tuple.tuple(f, isGetter, p);
+                        return null;
+                    })
+                    .filter(Objects::nonNull)
+                    .groupBy(t -> t.v1);
                 return seq(mx)
-                        .map(t -> {
-                            Tuple3<String, Boolean, Processor[]> tx = null;
-                            for (Tuple3<String, Boolean, Processor[]> tu : t.v2) {
-                                if (!tu.v2 && tu.v3 != null && tu.v3.length == 2) return tuple(t.v1, tu.v3);
-                                tx = tu;
-                            }
-                            return tx != null ? tuple(t.v1, tx.v3) : null;
-                        })
-                        .filter(Objects::nonNull)
-                        .toMap(Tuple2::v1, Tuple2::v2);
+                    .map(t -> {
+                        Tuple3<String, Boolean, Processor[]> tx = null;
+                        for (Tuple3<String, Boolean, Processor[]> tu : t.v2) {
+                            if (!tu.v2 && tu.v3 != null && tu.v3.length == 2) return tuple(t.v1, tu.v3);
+                            tx = tu;
+                        }
+                        return tx != null ? tuple(t.v1, tx.v3) : null;
+                    })
+                    .filter(Objects::nonNull)
+                    .toMap(Tuple2::v1, Tuple2::v2);
             }
 
-            boolean isGetter(Method method, Class<?> type);
+            boolean isGetter(Method method, Configuring.ClassObj<?> type);
 
-            boolean isSetter(Method method, Class<?> type);
+            boolean isSetter(Method method, Configuring.ClassObj<?> type);
 
             default String fieldName(Method method) {
                 val n = method.getName();
                 val f = n.startsWith("get") || n.startsWith("set") ? n.substring(3)
-                        : n.startsWith("is") ? n.substring(2) : n;
+                    : n.startsWith("is") ? n.substring(2) : n;
                 val chars = f.toCharArray();
                 chars[0] = Character.toLowerCase(chars[0]);//may not just ASCII
                 return new String(chars);
             }
 
             //(fields(index as number),Validation(may null),Map of getter and setters)
-            default Tuple3<List<String>, Validation, Map<String, Tuple2<Getter, Setter>>> build(Class<?> type, FactorySupplier factorySupplier) {
+            default Tuple3<List<String>, Validation, Map<String, Tuple2<Getter, Setter>>> build(Configuring.ClassObj<?> type, FactorySupplier factorySupplier) {
                 val entity = type.getName();
                 val converter = converters(type);
-                val gs = methods(m -> isSetter(m, type) || isGetter(m, type), type);
+                val gs = type.getDeclareMethods(m -> isSetter(m, type) || isGetter(m, type));
                 val chained = seq(gs).filter(m -> isSetter(m, type))
-                        .map(m -> {
-                            final String f = fieldName(m);
-                            if (m.getReturnType() == type) {
-                                return f;
-                            }
-                            return null;
-                        }).filter(Objects::nonNull).toList();
+                    .map(m -> {
+                        final String f = fieldName(m);
+                        if (type.isAssignableFrom(m.getReturnType())) {
+                            return f;
+                        }
+                        return null;
+                    }).filter(Objects::nonNull).toList();
                 val conv = processors(gs, this::fieldName, converter::get, factorySupplier);
                 val validators = seq(gs)
-                        .map(m -> {
-                            final String f = fieldName(m);
-                            final boolean getter = m.getParameterCount() == 0;
-                            Validator v = null;
-                            {//directly validator
-                                val anon = m.getAnnotationsByType(Validating.Validate.class);
-                                for (Validating.Validate validate : anon) {
+                    .map(m -> {
+                        final String f = fieldName(m);
+                        final boolean getter = m.getParameterCount() == 0;
+                        Validator v = null;
+                        {//directly validator
+                            val anon = m.getAnnotationsByType(Validating.Validate.class);
+                            for (Validating.Validate validate : anon) {
+                                val x = Validating.extract(validate);
+                                if (x != null) {
+                                    val vx = x.closure(entity, f);
+                                    v = v == null ? vx : v.then(vx);
+                                }
+                            }
+                        }
+                        {//indirectly validator
+                            val anon = m.getAnnotations();
+                            for (Annotation an : anon) {
+                                for (Validating.Validate validate : an.annotationType().getAnnotationsByType(Validating.Validate.class)) {
                                     val x = Validating.extract(validate);
                                     if (x != null) {
                                         val vx = x.closure(entity, f);
@@ -712,20 +866,9 @@ public interface Mimic<T extends Mimic<T>> {
                                     }
                                 }
                             }
-                            {//indirectly validator
-                                val anon = m.getAnnotations();
-                                for (Annotation an : anon) {
-                                    for (Validating.Validate validate : an.annotationType().getAnnotationsByType(Validating.Validate.class)) {
-                                        val x = Validating.extract(validate);
-                                        if (x != null) {
-                                            val vx = x.closure(entity, f);
-                                            v = v == null ? vx : v.then(vx);
-                                        }
-                                    }
-                                }
-                            }
-                            return tuple(f, getter, v);
-                        })
+                        }
+                        return tuple(f, getter, v);
+                    })
                     .groupBy(Tuple3::v1);
                 val validator = seq(validators)
                     .map(t -> {
@@ -739,109 +882,109 @@ public interface Mimic<T extends Mimic<T>> {
                     .filter(Objects::nonNull)
                     .toMap(Tuple2::v1, Tuple2::v2);
                 val numbers = seq(gs)
-                        .sorted(Method::getName)
-                        .zipWithIndex()
-                        .map(m -> {
-                            val nf = m.v1.getAnnotation(Configuring.Field.class);
-                            int n = (int) (long) m.v2;
-                            if (nf != null) {
-                                n = nf.value();
-                                if (n < 0) throw new IllegalStateException("field number must positive or zero");
-                            }
-                            //(name,number,isGetter)
-                            return tuple(fieldName(m.v1), n, m.v1.getParameterCount() == 0);
-                        })
-                        .groupBy(Tuple3::v1);
+                    .sorted(Method::getName)
+                    .zipWithIndex()
+                    .map(m -> {
+                        val nf = m.v1.getAnnotation(Configuring.Field.class);
+                        int n = (int) (long) m.v2;
+                        if (nf != null) {
+                            n = nf.value();
+                            if (n < 0) throw new IllegalStateException("field number must positive or zero");
+                        }
+                        //(name,number,isGetter)
+                        return tuple(fieldName(m.v1), n, m.v1.getParameterCount() == 0);
+                    })
+                    .groupBy(Tuple3::v1);
                 val fieldNumber = seq(numbers)
-                        .map(t -> {
-                            switch (t.v2.size()) {
-                                case 1:
-                                    return t.v2.get(0).limit2();
-                                case 2:
-                                    //smaller first
-                                    return t.v2.get(0).v2 > t.v2.get(1).v2 ? t.v2.get(1).limit2() : t.v2.get(0).limit2();
-                                default:
-                                    throw new IllegalStateException("unknown error in parse field number");
-                            }
-                        })
-                        .toMap(Tuple2::v1, Tuple2::v2);
+                    .map(t -> {
+                        switch (t.v2.size()) {
+                            case 1:
+                                return t.v2.get(0).limit2();
+                            case 2:
+                                //smaller first
+                                return t.v2.get(0).v2 > t.v2.get(1).v2 ? t.v2.get(1).limit2() : t.v2.get(0).limit2();
+                            default:
+                                throw new IllegalStateException("unknown error in parse field number");
+                        }
+                    })
+                    .toMap(Tuple2::v1, Tuple2::v2);
                 val fields = new ArrayList<String>(fieldNumber.size());
                 fieldNumber.forEach((n, i) -> fields.add(i, n));
                 if (fields.size() != fieldNumber.size()) throw new IllegalStateException("field number duplicated");
 
                 final Validation[] vali = new Validation[]{null};
                 val getset = seq(fields)
-                        .zipWithIndex()
-                        .map(t -> {
-                            val f = t.v1;
-                            val con = conv.get(f);
-                            val val = validator.get(f);
-                            val chain = chained.contains(f);
-                            val n = (int) (long) t.v2;
-                            Setter set;
-                            Getter get;
-                            if (con != null && val != null) {
-                                val setp = con[1];
-                                val getp = con[0];
-                                set = chain ?
-                                        (proxy, map, value) -> {
-                                            val.valid(value);
-                                            map.put(n, setp.process(value));
-                                            return proxy;
-                                        }
-                                        :
-                                        (proxy, map, value) -> {
-                                            val.valid(value);
-                                            map.put(n, setp.process(value));
-                                            return null;
-                                        };
-                                get = (map) -> getp.process(map.get(n));
-                                vali[0] = vali[0] == null ? m -> val.valid(getp.process(m.get(n))) : vali[0].then(m -> val.valid(getp.process(m.get(n))));
-                            } else if (con != null) { //convert only
-                                val setp = con[1];
-                                val getp = con[0];
-                                set = chain ?
-                                        (proxy, map, value) -> {
-                                            map.put(n, setp.process(value));
-                                            return proxy;
-                                        }
-                                        :
-                                        (proxy, map, value) -> {
-                                            map.put(n, setp.process(value));
-                                            return null;
-                                        };
-                                get = (map) -> getp.process(map.get(n));
-                            } else if (val != null) {//validator only
-                                set = chain ?
-                                        (proxy, map, value) -> {
-                                            val.valid(value);
-                                            map.put(n, value);
-                                            return proxy;
-                                        }
-                                        :
-                                        (proxy, map, value) -> {
-                                            val.valid(value);
-                                            map.put(n, value);
-                                            return null;
-                                        };
-                                get = (map) -> map.get(n);
-                                vali[0] = vali[0] == null ? m -> val.valid(m.get(n)) : vali[0].then(m -> val.valid(m.get(n)));
-                            } else {
-                                set = chain ?
-                                        (proxy, map, value) -> {
+                    .zipWithIndex()
+                    .map(t -> {
+                        val f = t.v1;
+                        val con = conv.get(f);
+                        val val = validator.get(f);
+                        val chain = chained.contains(f);
+                        val n = (int) (long) t.v2;
+                        Setter set;
+                        Getter get;
+                        if (con != null && val != null) {
+                            val setp = con[1];
+                            val getp = con[0];
+                            set = chain ?
+                                (proxy, map, value) -> {
+                                    val.valid(value);
+                                    map.put(n, setp.process(value));
+                                    return proxy;
+                                }
+                                :
+                                (proxy, map, value) -> {
+                                    val.valid(value);
+                                    map.put(n, setp.process(value));
+                                    return null;
+                                };
+                            get = (map) -> getp.process(map.get(n));
+                            vali[0] = vali[0] == null ? m -> val.valid(getp.process(m.get(n))) : vali[0].then(m -> val.valid(getp.process(m.get(n))));
+                        } else if (con != null) { //convert only
+                            val setp = con[1];
+                            val getp = con[0];
+                            set = chain ?
+                                (proxy, map, value) -> {
+                                    map.put(n, setp.process(value));
+                                    return proxy;
+                                }
+                                :
+                                (proxy, map, value) -> {
+                                    map.put(n, setp.process(value));
+                                    return null;
+                                };
+                            get = (map) -> getp.process(map.get(n));
+                        } else if (val != null) {//validator only
+                            set = chain ?
+                                (proxy, map, value) -> {
+                                    val.valid(value);
+                                    map.put(n, value);
+                                    return proxy;
+                                }
+                                :
+                                (proxy, map, value) -> {
+                                    val.valid(value);
+                                    map.put(n, value);
+                                    return null;
+                                };
+                            get = (map) -> map.get(n);
+                            vali[0] = vali[0] == null ? m -> val.valid(m.get(n)) : vali[0].then(m -> val.valid(m.get(n)));
+                        } else {
+                            set = chain ?
+                                (proxy, map, value) -> {
 
-                                            map.put(n, value);
-                                            return proxy;
-                                        }
-                                        :
-                                        (proxy, map, value) -> {
-                                            map.put(n, value);
-                                            return null;
-                                        };
-                                get = (map) -> map.get(n);
-                            }
-                            return tuple(t.v1, tuple(get, set));
-                        }).toMap(Tuple2::v1, Tuple2::v2);
+                                    map.put(n, value);
+                                    return proxy;
+                                }
+                                :
+                                (proxy, map, value) -> {
+                                    map.put(n, value);
+                                    return null;
+                                };
+                            get = (map) -> map.get(n);
+                        }
+                        return tuple(t.v1, tuple(get, set));
+                    }).toMap(Tuple2::v1, Tuple2::v2);
                 return tuple(fields, vali[0], getset);
             }
 
@@ -852,31 +995,26 @@ public interface Mimic<T extends Mimic<T>> {
             };
 
             @Override
-            default boolean isGetter(Method method, Class<?> type) {
+            default boolean isGetter(Method method, Configuring.ClassObj<?> type) {
                 val n = method.getName();
                 if (underlyingNames.contains(n)) return false;
-                return !method.isDefault()
-                        && !Modifier.isStatic(method.getModifiers())
-                        && Modifier.isPublic(method.getModifiers())
-                        && method.getParameterCount() == 0
+                return
+                    method.getParameterCount() == 0
                         &&
                         ((n.startsWith("get")
-                                && method.getReturnType() != void.class)
-                                || (n.startsWith("is")
-                                && method.getReturnType() == boolean.class));
+                            && method.getReturnType() != void.class)
+                            || (n.startsWith("is")
+                            && method.getReturnType() == boolean.class));
             }
 
             @Override
-            default boolean isSetter(Method method, Class<?> type) {
+            default boolean isSetter(Method method, Configuring.ClassObj<?> type) {
                 val n = method.getName();
                 if (underlyingNames.contains(n)) return false;
-                return !method.isDefault()
-                        && !Modifier.isStatic(method.getModifiers())
-                        && Modifier.isPublic(method.getModifiers())
-                        && method.getParameterCount() == 1
-                        && n.startsWith("set")
-                        && (method.getReturnType() == void.class || method.getReturnType() == type)
-                        ;
+                return method.getParameterCount() == 1
+                    && n.startsWith("set")
+                    && (method.getReturnType() == void.class || type.isAssignableFrom(method.getReturnType()))
+                    ;
             }
         }
 
@@ -885,26 +1023,20 @@ public interface Mimic<T extends Mimic<T>> {
             };
 
             @Override
-            default boolean isGetter(Method method, Class<?> type) {
+            default boolean isGetter(Method method, Configuring.ClassObj<?> type) {
                 if (underlyingNames.contains(method.getName())) return false;
-                return !method.isDefault()
-                        && !Modifier.isStatic(method.getModifiers())
-                        && Modifier.isPublic(method.getModifiers())
-                        && method.getParameterCount() == 0
-                        && method.getReturnType() != void.class
-                        && method.getReturnType() != type
-                        ;
+                return method.getParameterCount() == 0
+                    && method.getReturnType() != void.class
+                    && !type.isAssignableFrom(method.getReturnType())
+                    ;
             }
 
             @Override
-            default boolean isSetter(Method method, Class<?> type) {
+            default boolean isSetter(Method method, Configuring.ClassObj<?> type) {
                 if (underlyingNames.contains(method.getName())) return false;
-                return !method.isDefault()
-                        && !Modifier.isStatic(method.getModifiers())
-                        && Modifier.isPublic(method.getModifiers())
-                        && method.getParameterCount() == 1
-                        && (method.getReturnType() == void.class || method.getReturnType() == type)
-                        ;
+                return method.getParameterCount() == 1
+                    && (method.getReturnType() == void.class || method.getReturnType() == type.type || type.isAssignableFrom(method.getReturnType()))
+                    ;
             }
         }
 
@@ -943,7 +1075,7 @@ public interface Mimic<T extends Mimic<T>> {
         }
 
         @ApiStatus.Internal
-        final class FactoryImpl<T extends Mimic<T>> implements Factory<T> {
+        final class FactoryImpl<T> implements Factory<T> {
             static final Map<String, Function4<Class<?>, Map<Integer, Object>, Object, Object[], Object>> common = new HashMap<>();
 
             static {
@@ -963,14 +1095,15 @@ public interface Mimic<T extends Mimic<T>> {
 
             FactoryImpl(Class<T> type, Function<Class<?>, Factory<?>> cache) {
                 this.type = type;
-                this.strategy = type
-                        .getAnnotation(Configuring.Fluent.class) == null
-                        ? JavaBeanStrategy.INSTANCE : FluentStrategy.INSTANCE;
-                this.mapSupplier =
-                        type.getAnnotation(Configuring.Concurrent.class) == null
-                                ? HashMap::new : ConcurrentHashMap::new;
+                val classes = new Configuring.ClassObj<>(type);
+                val mimics = classes.annotatedOf(Configuring.Mimicked.class);
+                if (mimics.isEmpty())
+                    throw new IllegalArgumentException("the type [" + type + "] not annotated with Mimicked");
+                val mimicked = mimics.get(0);//first appearance
+                this.strategy = mimicked.fluent() ? JavaBeanStrategy.INSTANCE : FluentStrategy.INSTANCE;
+                this.mapSupplier = mimicked.concurrent() ? HashMap::new : ConcurrentHashMap::new;
                 val v =
-                        strategy.build(type, cache::apply);
+                    strategy.build(classes, cache::apply);
                 fields = v.v1;
                 validation = v.v2;
                 methods = v.v3;
@@ -984,10 +1117,10 @@ public interface Mimic<T extends Mimic<T>> {
                         constructor = Strategy.accessible(MethodHandles.Lookup.class.getDeclaredConstructor(Class.class, int.class));
                     Class<?> declaringClass = method.getDeclaringClass();
                     return constructor
-                            .newInstance(declaringClass, MethodHandles.Lookup.PRIVATE)
-                            .unreflectSpecial(method, declaringClass)
-                            .bindTo(obj[0])
-                            .invokeWithArguments(args);
+                        .newInstance(declaringClass, MethodHandles.Lookup.PRIVATE)
+                        .unreflectSpecial(method, declaringClass)
+                        .bindTo(obj[0])
+                        .invokeWithArguments(args);
                 } catch (Throwable e) {
                     throw new IllegalStateException("Cannot invoke default method", e);
                 }
@@ -1058,7 +1191,7 @@ public interface Mimic<T extends Mimic<T>> {
          * @param <T>         type
          * @return a Factory, should keep it in a cache.
          */
-        static <T extends Mimic<T>> Factory<T> factory(Class<T> type, Function<Class<?>, Factory<?>> cacheGetter) {
+        static <T> Factory<T> factory(Class<T> type, Function<Class<?>, Factory<?>> cacheGetter) {
             return new FactoryImpl<>(type, cacheGetter);
         }
 
