@@ -157,6 +157,17 @@ public class MimicTest {
 
     /**
      * execute benchmark via junit
+     * <p><b>result for simple </b>
+     * <pre>
+     *   Benchmark                              Mode  Cnt   Score    Error  Units
+     * MimicTest.benchmarkCreateClassInstant  avgt  100   0.016 ±  0.001  us/op
+     * MimicTest.benchmarkCreateInstant       avgt  100   1.688 ±  0.080  us/op
+     * MimicTest.benchmarkFactory             avgt  100  38.970 ±  1.395  us/op
+     * MimicTest.benchmarkReadClassValue      avgt  100   0.016 ±  0.001  us/op
+     * MimicTest.benchmarkReadValue           avgt  100   0.180 ±  0.008  us/op
+     * MimicTest.benchmarkSetClassValue       avgt  100   0.013 ±  0.001  us/op
+     * MimicTest.benchmarkSetValue            avgt  100   0.306 ±  0.016  us/op
+     * </pre>
      */
     @Test
     void benchmark() throws RunnerException {
@@ -170,7 +181,7 @@ public class MimicTest {
             .warmupIterations(2)
 
             .measurementTime(TimeValue.microseconds(1))
-            .measurementIterations(2)
+            .measurementIterations(100)
 
             .threads(2)
             .forks(1)
@@ -187,12 +198,33 @@ public class MimicTest {
     @State(Scope.Thread)
     public static class BenchmarkState {
         Function<Class<?>, Mimic.Factory<?>> supplier;
+        Mimic.Factory<Simple> factory;
+        Simple instance;
+        SimpleImpl classInstance;
 
         @Setup(Level.Trial)
         public void
         initialize() {
             //noinspection unchecked
             supplier = c -> Mimic.Factory.factory((Class) c, supplier);
+            factory = (Mimic.Factory<Simple>) supplier.apply(Simple.class);
+            instance = factory.build(null);
+            classInstance = new SimpleImpl();
+        }
+    }
+
+    static class SimpleImpl implements Simple {
+        private int i;
+
+        @Override
+        public Integer integer() {
+            return i;
+        }
+
+        @Override
+        public Simple integer(int integer) {
+            i = integer;
+            return this;
         }
     }
 
@@ -202,7 +234,7 @@ public class MimicTest {
     @Warmup(iterations = 2, batchSize = 3, time = 1, timeUnit = TimeUnit.SECONDS)
     @OutputTimeUnit(TimeUnit.MICROSECONDS)
     @Fork(value = 2)
-    @Measurement(iterations = 2, time = 300, timeUnit = TimeUnit.MILLISECONDS)
+    @Measurement(iterations = 20, time = 300, timeUnit = TimeUnit.MILLISECONDS)
     @OperationsPerInvocation(100)
     @Benchmark
     public void benchmarkFactory(BenchmarkState state, Blackhole bh) {
@@ -210,8 +242,73 @@ public class MimicTest {
             bh.consume(Mimic.Factory.factory(SimpleConvValidate.class, state.supplier));
     }
 
+    @Warmup(iterations = 2, batchSize = 3, time = 1, timeUnit = TimeUnit.SECONDS)
+    @OutputTimeUnit(TimeUnit.MICROSECONDS)
+    @Fork(value = 2)
+    @Measurement(iterations = 20, time = 300, timeUnit = TimeUnit.MILLISECONDS)
+    @OperationsPerInvocation(100)
+    @Benchmark
+    public void benchmarkCreateInstant(BenchmarkState state, Blackhole bh) {
+        for (int i = 0; i < 100; i++)
+            bh.consume(state.factory.build(null));
+    }
 
-    @Mimic.Configuring.Mimicked
+    @Warmup(iterations = 2, batchSize = 3, time = 1, timeUnit = TimeUnit.SECONDS)
+    @OutputTimeUnit(TimeUnit.MICROSECONDS)
+    @Fork(value = 2)
+    @Measurement(iterations = 20, time = 300, timeUnit = TimeUnit.MILLISECONDS)
+    @OperationsPerInvocation(100)
+    @Benchmark
+    public void benchmarkCreateClassInstant(BenchmarkState state, Blackhole bh) {
+        for (int i = 0; i < 100; i++)
+            bh.consume(new SimpleImpl());
+    }
+
+    @Warmup(iterations = 2, batchSize = 3, time = 1, timeUnit = TimeUnit.SECONDS)
+    @OutputTimeUnit(TimeUnit.MICROSECONDS)
+    @Fork(value = 2)
+    @Measurement(iterations = 20, time = 300, timeUnit = TimeUnit.MILLISECONDS)
+    @OperationsPerInvocation(100)
+    @Benchmark
+    public void benchmarkSetValue(BenchmarkState state, Blackhole bh) {
+        for (int i = 0; i < 100; i++)
+            bh.consume(state.instance.integer(i));
+    }
+
+    @Warmup(iterations = 2, batchSize = 3, time = 1, timeUnit = TimeUnit.SECONDS)
+    @OutputTimeUnit(TimeUnit.MICROSECONDS)
+    @Fork(value = 2)
+    @Measurement(iterations = 20, time = 300, timeUnit = TimeUnit.MILLISECONDS)
+    @OperationsPerInvocation(100)
+    @Benchmark
+    public void benchmarkSetClassValue(BenchmarkState state, Blackhole bh) {
+        for (int i = 0; i < 100; i++)
+            bh.consume(state.classInstance.integer(i));
+    }
+
+    @Warmup(iterations = 2, batchSize = 3, time = 1, timeUnit = TimeUnit.SECONDS)
+    @OutputTimeUnit(TimeUnit.MICROSECONDS)
+    @Fork(value = 2)
+    @Measurement(iterations = 20, time = 300, timeUnit = TimeUnit.MILLISECONDS)
+    @OperationsPerInvocation(100)
+    @Benchmark
+    public void benchmarkReadValue(BenchmarkState state, Blackhole bh) {
+        for (int i = 0; i < 100; i++)
+            bh.consume(state.instance.integer());
+    }
+
+    @Warmup(iterations = 2, batchSize = 3, time = 1, timeUnit = TimeUnit.SECONDS)
+    @OutputTimeUnit(TimeUnit.MICROSECONDS)
+    @Fork(value = 2)
+    @Measurement(iterations = 20, time = 300, timeUnit = TimeUnit.MILLISECONDS)
+    @OperationsPerInvocation(100)
+    @Benchmark
+    public void benchmarkReadClassValue(BenchmarkState state, Blackhole bh) {
+        for (int i = 0; i < 100; i++)
+            bh.consume(state.classInstance.integer());
+    }
+
+    @Mimic.Configuring.Mimicked(fluent = true)
     @Mimic.Converting.Converter(value = Integer.class, holder = SimpleConvValidate.class)
     interface SimpleConvertedValidated<T extends SimpleConvertedValidated<T>> extends Mimic<T> {
         Integer integer();
@@ -227,7 +324,6 @@ public class MimicTest {
     @Test
     void testInherit() {
         val f = Mimic.Factory.factory(SimpleValidateInherit.class, supplier.get());
-        System.out.println(f);
         val instance = f.build(null);
         instance.integer(1);
         val m = instance.underlyingMap();
@@ -250,10 +346,5 @@ public class MimicTest {
         });
         assertDoesNotThrow(instance::validate);
 
-       /* Seq.of(SimpleValidateInherit.class.getMethods())
-            .forEach(m->{
-                System.out.println(m+":"+Arrays.toString(m.getAnnotations()));
-            });
-        System.out.println(Arrays.toString(SimpleValidateInherit.class.getAnnotations()));*/
     }
 }
