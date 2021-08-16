@@ -1100,11 +1100,13 @@ public interface Mimic<T> {
                 if (mimics.isEmpty())
                     throw new IllegalArgumentException("the type [" + type + "] not annotated with Mimicked");
                 val mimicked = mimics.get(0);//first appearance
-                this.strategy = mimicked.fluent() ? JavaBeanStrategy.INSTANCE : FluentStrategy.INSTANCE;
+                this.strategy = mimicked.fluent() ? FluentStrategy.INSTANCE : JavaBeanStrategy.INSTANCE;
                 this.mapSupplier = mimicked.concurrent() ? HashMap::new : ConcurrentHashMap::new;
                 val v =
                     strategy.build(classes, cache::apply);
                 fields = v.v1;
+                if (fields.isEmpty())
+                    throw new IllegalStateException("the type [" + type + "] found no fields exists!");
                 validation = v.v2;
                 methods = v.v3;
             }
