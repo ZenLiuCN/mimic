@@ -27,7 +27,7 @@ public class MimicTest {
         supplier.set(c -> cache.computeIfAbsent(c, supplier.get()));
     }
 
-    @Mimic.Configuring.Mimicked(fluent = true)
+    @Mimic.Configuring.Mimicked(fluent = true, concurrent = true)
     interface Simple extends Mimic<Simple> {
         Integer integer();
 
@@ -167,6 +167,15 @@ public class MimicTest {
      * MimicTest.benchmarkReadValue           avgt  100   0.180 ±  0.008  us/op
      * MimicTest.benchmarkSetClassValue       avgt  100   0.013 ±  0.001  us/op
      * MimicTest.benchmarkSetValue            avgt  100   0.306 ±  0.016  us/op
+     *
+     * Benchmark                              Mode  Cnt   Score   Error  Units
+     * MimicTest.benchmarkCreateClassInstant  avgt  100   0.016 ± 0.001  us/op
+     * MimicTest.benchmarkCreateInstant       avgt  100   1.531 ± 0.175  us/op
+     * MimicTest.benchmarkFactory             avgt  100  37.271 ± 3.475  us/op
+     * MimicTest.benchmarkReadClassValue      avgt  100   0.015 ± 0.001  us/op
+     * MimicTest.benchmarkReadValue           avgt  100   0.180 ± 0.009  us/op
+     * MimicTest.benchmarkSetClassValue       avgt  100   0.012 ± 0.001  us/op
+     * MimicTest.benchmarkSetValue            avgt  100   0.229 ± 0.013  us/op
      * </pre>
      */
     @Test
