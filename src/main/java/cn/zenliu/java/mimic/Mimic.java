@@ -736,11 +736,11 @@ public interface Mimic<T> {
                             break;
                         }
                         i[p] = b.length();
-
                     }
                     this.names = b.toString();
                     this.index = i;
-                    this.list = Collections.unmodifiableList(new ArrayList<>(names));
+                    //save memory
+                    //this.list = Collections.unmodifiableList(new ArrayList<>(names));
                 }
 
                 boolean isEmpty() {
