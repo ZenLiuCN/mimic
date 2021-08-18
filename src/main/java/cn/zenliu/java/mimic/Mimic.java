@@ -20,7 +20,6 @@ import java.lang.annotation.*;
 import java.lang.invoke.MethodHandles;
 import java.lang.reflect.*;
 import java.util.*;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
@@ -713,6 +712,104 @@ public interface Mimic<T> {
          * Factory building strategy
          */
         interface Strategy {
+            final class IntMap implements Map<Integer, Object> {
+                final int size;
+                final Object[] container;
+
+                IntMap(int size) {
+                    this.size = size;
+                    this.container = new Object[size];
+                }
+
+                @Override
+                public int size() {
+                    return size;
+                }
+
+                @Override
+                public boolean isEmpty() {
+                    return false;
+                }
+
+                @Override
+                public boolean containsKey(Object key) {
+                    if (key instanceof Integer) {
+                        return (Integer) key <= size - 1;
+                    }
+                    return false;
+                }
+
+                @Override
+                public boolean containsValue(Object value) {
+                    return false;
+                }
+
+                @Override
+                public Object get(Object key) {
+                    if (containsKey(key)) {
+                        return container[(Integer) key];
+                    }
+                    return null;
+                }
+
+                @Nullable
+                @Override
+                public Object put(Integer key, Object value) {
+                    if (containsKey(key)) {
+                        val old = container[key];
+                        container[key] = value;
+                        return old;
+                    }
+                    return null;
+                }
+
+                @Override
+                public Object remove(Object key) {
+                    if (containsKey(key)) {
+                        val old = container[(Integer) key];
+                        container[(Integer) key] = null;
+                        return old;
+                    }
+                    return null;
+                }
+
+                @Override
+                public void putAll(@NotNull Map<? extends Integer, ?> m) {
+                    m.forEach(this::put);
+                }
+
+                @Override
+                public void clear() {
+                    Arrays.fill(container, null);
+                }
+
+                @NotNull
+                @Override
+                public Set<Integer> keySet() {
+                    val set = new HashSet<Integer>();
+                    for (int i = 0; i < container.length; i++) {
+                        set.add(i);
+                    }
+                    return set;
+                }
+
+                @NotNull
+                @Override
+                public Collection<Object> values() {
+                    return Arrays.asList(container);
+                }
+
+                @NotNull
+                @Override
+                public Set<Entry<Integer, Object>> entrySet() {
+                    val set = new HashSet<Entry<Integer, Object>>();
+                    for (int i = 0; i < container.length; i++) {
+                        set.add(new AbstractMap.SimpleEntry<>(i, container[i]));
+                    }
+                    return set;
+                }
+            }
+
             final class Fields {
                 final String names;
                 final int[] index;
@@ -1141,7 +1238,7 @@ public interface Mimic<T> {
                     throw new IllegalArgumentException("the type [" + type + "] not annotated with Mimicked");
                 val mimicked = mimics.get(0);//first appearance
                 this.strategy = mimicked.fluent() ? FluentStrategy.INSTANCE : JavaBeanStrategy.INSTANCE;
-                this.mapSupplier = mimicked.concurrent() ? HashMap::new : ConcurrentHashMap::new;
+
                 val v =
                     strategy.build(classes, cache::apply);
                 fields = new Strategy.Fields(v.v1);
@@ -1149,6 +1246,7 @@ public interface Mimic<T> {
                     throw new IllegalStateException("the type [" + type + "] found no fields exists!");
                 validation = v.v2;
                 methods = v.v3;
+                this.mapSupplier = mimicked.concurrent() ? () -> new Strategy.IntMap(fields.max()) : () -> new Strategy.IntMap(fields.max());
             }
 
             private Constructor<MethodHandles.Lookup> constructor;
