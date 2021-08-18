@@ -687,17 +687,6 @@ public interface Mimic<T> {
 
             boolean concurrent() default false;
         }
-
-        /**
-         * Mark on getter or setter: use number to define the field;
-         */
-        @Retention(RetentionPolicy.RUNTIME)
-        @Documented
-        @Target(ElementType.METHOD)
-        @Inherited
-        @interface Field {
-            int value();
-        }
     }
 
     /**
@@ -724,6 +713,85 @@ public interface Mimic<T> {
          * Factory building strategy
          */
         interface Strategy {
+            final class Fields {
+                final String names;
+                final int[] index;
+                private transient List<String> list;
+
+                Fields(String names, int[] index) {
+                    this.names = names;
+                    Arrays.sort(index);
+                    this.index = index;
+                }
+
+                Fields(Set<String> names) {
+                    val b = new StringBuilder();
+                    val max = names.size() - 1;
+                    val i = new int[max];
+                    var p = -1;
+                    for (String name : names) {
+                        b.append(name);
+                        p++;
+                        if (p == max) {
+                            break;
+                        }
+                        i[p] = b.length();
+
+                    }
+                    this.names = b.toString();
+                    this.index = i;
+                    this.list = Collections.unmodifiableList(new ArrayList<>(names));
+                }
+
+                boolean isEmpty() {
+                    return names.isEmpty();
+                }
+
+                int max() {
+                    return index.length;
+                }
+
+                List<String> toList() {
+                    if (list == null) {
+                        synchronized (names) {
+                            list = new ArrayList<>();
+                            var last = 0;
+                            for (int i : index) {
+                                list.add(names.substring(last, i));
+                                last = i;
+                            }
+                            list.add(names.substring(last));
+                            list = Collections.unmodifiableList(list);
+                        }
+                    }
+                    return list;
+                }
+
+                public int indexOf(String n) {
+                    return names.indexOf(n);
+                }
+
+                public String of(int n) {
+                    val x = index.length;
+                    if (n < 0 || n > x) return null;
+                    if (n == x) return names.substring(index[x - 1]);
+                    val idx0 = n == 0 ? 0 : index[n - 1];
+                    val idx1 = index[n];
+                    return names.substring(idx0, idx1);
+                }
+
+                public static void main(String[] args) {
+//                    val f = new Fields(new HashSet<>(Arrays.asList("a", "ab", "abc", "abcd", "abcde", "abcdef", "abcdefg", "abcdefgh")));
+                    val f = new Fields("aababcdefghabcabcdeabcdefabcdefgabcd", new int[]{1, 3, 11, 14, 19, 25, 32});
+                    System.out.println(f.names);
+                    System.out.println(Arrays.toString(f.index));
+                    System.out.println(f.toList());
+                    for (int i = 0; i <= f.max(); i++) {
+                        System.out.println(i + ":" + f.of(i));
+                    }
+                }
+            }
+
             interface FactorySupplier extends Function<Class<?>, Factory<?>> {
             }
 
@@ -827,7 +895,7 @@ public interface Mimic<T> {
             }
 
             //(fields(index as number),Validation(may null),Map of getter and setters)
-            default Tuple3<List<String>, Validation, Map<String, Tuple2<Getter, Setter>>> build(Configuring.ClassObj<?> type, FactorySupplier factorySupplier) {
+            default Tuple3<Set<String>, Validation, Map<String, Tuple2<Getter, Setter>>> build(Configuring.ClassObj<?> type, FactorySupplier factorySupplier) {
                 val entity = type.getName();
                 val converter = converters(type);
                 val gs = type.getDeclareMethods(m -> isSetter(m, type) || isGetter(m, type));
@@ -881,37 +949,9 @@ public interface Mimic<T> {
                     })
                     .filter(Objects::nonNull)
                     .toMap(Tuple2::v1, Tuple2::v2);
-                val numbers = seq(gs)
-                    .sorted(Method::getName)
-                    .zipWithIndex()
-                    .map(m -> {
-                        val nf = m.v1.getAnnotation(Configuring.Field.class);
-                        int n = (int) (long) m.v2;
-                        if (nf != null) {
-                            n = nf.value();
-                            if (n < 0) throw new IllegalStateException("field number must positive or zero");
-                        }
-                        //(name,number,isGetter)
-                        return tuple(fieldName(m.v1), n, m.v1.getParameterCount() == 0);
-                    })
-                    .groupBy(Tuple3::v1);
-                val fieldNumber = seq(numbers)
-                    .map(t -> {
-                        switch (t.v2.size()) {
-                            case 1:
-                                return t.v2.get(0).limit2();
-                            case 2:
-                                //smaller first
-                                return t.v2.get(0).v2 > t.v2.get(1).v2 ? t.v2.get(1).limit2() : t.v2.get(0).limit2();
-                            default:
-                                throw new IllegalStateException("unknown error in parse field number");
-                        }
-                    })
-                    .toMap(Tuple2::v1, Tuple2::v2);
-                val fields = new ArrayList<String>(fieldNumber.size());
-                fieldNumber.forEach((n, i) -> fields.add(i, n));
-                if (fields.size() != fieldNumber.size()) throw new IllegalStateException("field number duplicated");
-
+                val fields = seq(gs).filter(m -> isGetter(m, type)).map(this::fieldName)
+                    .sorted()
+                    .toSet();//TODO: none checked set
                 final Validation[] vali = new Validation[]{null};
                 val getset = seq(fields)
                     .zipWithIndex()
@@ -1088,7 +1128,7 @@ public interface Mimic<T> {
 
             final Strategy strategy;
             final Supplier<Map<Integer, Object>> mapSupplier;
-            final List<String> fields;
+            final Strategy.Fields fields;
             final Validation validation;
             final Map<String, Tuple2<Getter, Setter>> methods;
             final Class<T> type;
@@ -1104,7 +1144,7 @@ public interface Mimic<T> {
                 this.mapSupplier = mimicked.concurrent() ? HashMap::new : ConcurrentHashMap::new;
                 val v =
                     strategy.build(classes, cache::apply);
-                fields = v.v1;
+                fields = new Strategy.Fields(v.v1);
                 if (fields.isEmpty())
                     throw new IllegalStateException("the type [" + type + "] found no fields exists!");
                 validation = v.v2;
@@ -1146,7 +1186,7 @@ public interface Mimic<T> {
                     } else if (length == 0 && name.equals("underlyingMap")) {
                         return underlying;
                     } else if (length == 0 && name.equals("underlyingNaming")) {
-                        return Collections.unmodifiableList(fields);
+                        return Collections.unmodifiableList(fields.toList());
                     } else if (length == 0 && name.equals("underlyingType")) {
                         return type;
                     } else if (length == 0 && name.equals("underlyingInstance")) {
