@@ -176,7 +176,7 @@ public class MimicTest {
      * MimicTest.benchmarkReadValue           avgt  100   0.180 ± 0.009  us/op
      * MimicTest.benchmarkSetClassValue       avgt  100   0.012 ± 0.001  us/op
      * MimicTest.benchmarkSetValue            avgt  100   0.229 ± 0.013  us/op
-     * <b>int map slightly improve performance</b>
+     * <b>int map slightly improve performance, so try reduce getter and setters</b>
      * Benchmark                              Mode  Cnt   Score   Error  Units
      * MimicTest.benchmarkCreateClassInstant  avgt  100   0.017 ± 0.003  us/op
      * MimicTest.benchmarkCreateInstant       avgt  100   1.695 ± 0.145  us/op

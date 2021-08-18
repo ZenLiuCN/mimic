@@ -20,7 +20,9 @@ import java.lang.annotation.*;
 import java.lang.invoke.MethodHandles;
 import java.lang.reflect.*;
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Function;
+import java.util.function.IntFunction;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
 
@@ -685,6 +687,19 @@ public interface Mimic<T> {
             boolean fluent() default false;
 
             boolean concurrent() default false;
+
+            /**
+             * optional self defined map factory
+             */
+            Class<?> mapFactory() default Void.class;
+
+            /**
+             * the static factory field<br/>
+             * <pre>
+             *     must a  {@link java.util.function.Supplier}&lt;Map&lt;String,Object&gt;&gt;or  {@link java.util.function.IntFunction}&lt;Map&lt;String,Object&gt;&gt;
+             * </pre>
+             */
+            String field() default "";
         }
     }
 
@@ -712,7 +727,7 @@ public interface Mimic<T> {
          * Factory building strategy
          */
         interface Strategy {
-            final class IntMap implements Map<Integer, Object> {
+         /*   final class IntMap implements Map<Integer, Object> {
                 final int size;
                 final Object[] container;
 
@@ -808,7 +823,7 @@ public interface Mimic<T> {
                     }
                     return set;
                 }
-            }
+            }*/
 
             final class Fields {
                 final String names;
@@ -1230,6 +1245,7 @@ public interface Mimic<T> {
             final Map<String, Tuple2<Getter, Setter>> methods;
             final Class<T> type;
 
+            @SneakyThrows
             FactoryImpl(Class<T> type, Function<Class<?>, Factory<?>> cache) {
                 this.type = type;
                 val classes = new Configuring.ClassObj<>(type);
@@ -1246,7 +1262,17 @@ public interface Mimic<T> {
                     throw new IllegalStateException("the type [" + type + "] found no fields exists!");
                 validation = v.v2;
                 methods = v.v3;
-                this.mapSupplier = mimicked.concurrent() ? () -> new Strategy.IntMap(fields.max()) : () -> new Strategy.IntMap(fields.max());
+                if (mimicked.mapFactory() != Void.class) {
+                    val f = mimicked.mapFactory().getField(mimicked.field());
+                    if (Supplier.class.isAssignableFrom(f.getType())) {
+                        @SuppressWarnings("unchecked") val x = (Supplier<Map<Integer, Object>>) f.get(mimicked.mapFactory());
+                        this.mapSupplier = x;
+                    } else if (IntFunction.class.isAssignableFrom(f.getType())) {
+                        @SuppressWarnings("unchecked") val x = (IntFunction<Map<Integer, Object>>) f.get(mimicked.mapFactory());
+                        this.mapSupplier = () -> x.apply(fields.max());
+                    } else throw new IllegalStateException("Mimicked defined invalid map factory!");
+                } else
+                    this.mapSupplier = mimicked.concurrent() ? ConcurrentHashMap::new : HashMap::new;
             }
 
             private Constructor<MethodHandles.Lookup> constructor;
