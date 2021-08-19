@@ -177,6 +177,25 @@ public class MimicTest {
      * MimicTest.benchmarkMimicSetValue       avgt  200    50.906 ±   3.140  ns/op
      * MimicTest.benchmarkReadClassValue      avgt  200     3.079 ±   0.092  ns/op
      * MimicTest.benchmarkSetClassValue       avgt  200     2.371 ±   0.014  ns/op
+     * <b>precompiled method name mapping</b>
+     * Benchmark                              Mode  Cnt      Score     Error  Units
+     * MimicTest.benchmarkCreateClassInstant  avgt  200      4.031 ±   0.851  ns/op
+     * MimicTest.benchmarkMimicCreateInstant  avgt  200    318.478 ±  13.759  ns/op
+     * MimicTest.benchmarkMimicFactory        avgt  200  11540.688 ± 657.444  ns/op
+     * MimicTest.benchmarkMimicReadValue      avgt  200     39.501 ±   1.409  ns/op
+     * MimicTest.benchmarkMimicSetValue       avgt  200     56.588 ±   3.415  ns/op
+     * MimicTest.benchmarkReadClassValue      avgt  200      3.130 ±   0.132  ns/op
+     * MimicTest.benchmarkSetClassValue       avgt  200      2.377 ±   0.020  ns/op
+     *
+     * Benchmark                              Mode  Cnt     Score     Error  Units
+     * MimicTest.benchmarkCreateClassInstant  avgt  200     3.748 ±   0.231  ns/op
+     * MimicTest.benchmarkMimicCreateInstant  avgt  200   318.543 ±   8.935  ns/op
+     * MimicTest.benchmarkMimicFactory        avgt  200  9838.604 ± 734.581  ns/op
+     * MimicTest.benchmarkMimicReadValue      avgt  200    39.978 ±   1.610  ns/op
+     * MimicTest.benchmarkMimicSetValue       avgt  200    48.529 ±   2.186  ns/op
+     * MimicTest.benchmarkReadClassValue      avgt  200     2.951 ±   0.022  ns/op
+     * MimicTest.benchmarkSetClassValue       avgt  200     2.411 ±   0.024  ns/op
+     *
      * </pre>
      */
     @Test
