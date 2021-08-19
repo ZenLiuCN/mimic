@@ -1243,6 +1243,7 @@ public interface Mimic<T> {
             final Strategy.Fields fields;
             final Validation validation;
             final Map<String, Tuple2<Getter, Setter>> methods;
+            final HashMap<String, String> names;
             final Class<T> type;
 
             @SneakyThrows
@@ -1272,7 +1273,8 @@ public interface Mimic<T> {
                         this.mapSupplier = () -> x.apply(fields.max());
                     } else throw new IllegalStateException("Mimicked defined invalid map factory!");
                 } else
-                    this.mapSupplier = mimicked.concurrent() ? ConcurrentHashMap::new : HashMap::new;
+                    this.mapSupplier = mimicked.concurrent() ? () -> new ConcurrentHashMap<>(fields.max() + 1) : () -> new HashMap<>(fields.max() + 1);
+                this.names = new HashMap<String, String>((fields.max() + 1) * 2);
             }
 
             private Constructor<MethodHandles.Lookup> constructor;
@@ -1292,12 +1294,14 @@ public interface Mimic<T> {
                 }
             }
 
+
             @SuppressWarnings("unchecked")
             public T innerBuild(@NotNull Map<Integer, Object> map) {
                 val underlying = map;
                 val obj = new Object[1];
+
                 obj[0] = Proxy.newProxyInstance(type.getClassLoader(), new Class[]{type}, ((proxy, method, args) -> {
-                    val name = method.getName();
+                    val name = names.computeIfAbsent(method.getName(), (k) -> strategy.fieldName(method));
                     val length = (args == null ? 0 : args.length);
                     if (common.containsKey(name) && length == 0) {
                         return common.get(name).apply(type, underlying, proxy, args);

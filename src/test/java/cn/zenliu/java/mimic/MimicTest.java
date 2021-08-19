@@ -27,7 +27,7 @@ public class MimicTest {
         supplier.set(c -> cache.computeIfAbsent(c, supplier.get()));
     }
 
-    @Mimic.Configuring.Mimicked(fluent = true, concurrent = true)
+    @Mimic.Configuring.Mimicked(fluent = true)
     interface Simple extends Mimic<Simple> {
         Integer integer();
 
@@ -159,32 +159,24 @@ public class MimicTest {
      * execute benchmark via junit
      * <p><b>result for simple </b>
      * <pre>
-     *   Benchmark                              Mode  Cnt   Score    Error  Units
-     * MimicTest.benchmarkCreateClassInstant  avgt  100   0.016 ±  0.001  us/op
-     * MimicTest.benchmarkCreateInstant       avgt  100   1.688 ±  0.080  us/op
-     * MimicTest.benchmarkFactory             avgt  100  38.970 ±  1.395  us/op
-     * MimicTest.benchmarkReadClassValue      avgt  100   0.016 ±  0.001  us/op
-     * MimicTest.benchmarkReadValue           avgt  100   0.180 ±  0.008  us/op
-     * MimicTest.benchmarkSetClassValue       avgt  100   0.013 ±  0.001  us/op
-     * MimicTest.benchmarkSetValue            avgt  100   0.306 ±  0.016  us/op
-     *
-     * Benchmark                              Mode  Cnt   Score   Error  Units
-     * MimicTest.benchmarkCreateClassInstant  avgt  100   0.016 ± 0.001  us/op
-     * MimicTest.benchmarkCreateInstant       avgt  100   1.531 ± 0.175  us/op
-     * MimicTest.benchmarkFactory             avgt  100  37.271 ± 3.475  us/op
-     * MimicTest.benchmarkReadClassValue      avgt  100   0.015 ± 0.001  us/op
-     * MimicTest.benchmarkReadValue           avgt  100   0.180 ± 0.009  us/op
-     * MimicTest.benchmarkSetClassValue       avgt  100   0.012 ± 0.001  us/op
-     * MimicTest.benchmarkSetValue            avgt  100   0.229 ± 0.013  us/op
-     * <b>int map slightly improve performance, so try reduce getter and setters</b>
-     * Benchmark                              Mode  Cnt   Score   Error  Units
-     * MimicTest.benchmarkCreateClassInstant  avgt  100   0.017 ± 0.003  us/op
-     * MimicTest.benchmarkCreateInstant       avgt  100   1.695 ± 0.145  us/op
-     * MimicTest.benchmarkFactory             avgt  100  34.026 ± 2.288  us/op
-     * MimicTest.benchmarkReadClassValue      avgt  100   0.015 ± 0.002  us/op
-     * MimicTest.benchmarkReadValue           avgt  100   0.185 ± 0.026  us/op
-     * MimicTest.benchmarkSetClassValue       avgt  100   0.013 ± 0.001  us/op
-     * MimicTest.benchmarkSetValue            avgt  100   0.193 ± 0.012  us/op
+     * <b>one shot</b>
+     * Benchmark                              Mode  Cnt      Score      Error  Units
+     * MimicTest.benchmarkCreateClassInstant  avgt  200      3.721 ±    0.168  ns/op
+     * MimicTest.benchmarkMimicCreateInstant  avgt  200    314.420 ±    9.292  ns/op
+     * MimicTest.benchmarkMimicFactory        avgt  200  11115.976 ± 1112.852  ns/op
+     * MimicTest.benchmarkMimicReadValue      avgt  200     39.845 ±    0.863  ns/op
+     * MimicTest.benchmarkMimicSetValue       avgt  200     50.020 ±    2.159  ns/op
+     * MimicTest.benchmarkReadClassValue      avgt  200      2.950 ±    0.019  ns/op
+     * MimicTest.benchmarkSetClassValue       avgt  200      2.368 ±    0.014  ns/op
+     * <b>two shot</b>
+     * Benchmark                              Mode  Cnt     Score     Error  Units
+     * MimicTest.benchmarkCreateClassInstant  avgt  200     3.719 ±   0.188  ns/op
+     * MimicTest.benchmarkMimicCreateInstant  avgt  200   316.871 ±  10.075  ns/op
+     * MimicTest.benchmarkMimicFactory        avgt  200  9026.703 ± 432.104  ns/op
+     * MimicTest.benchmarkMimicReadValue      avgt  200    40.446 ±   1.420  ns/op
+     * MimicTest.benchmarkMimicSetValue       avgt  200    50.906 ±   3.140  ns/op
+     * MimicTest.benchmarkReadClassValue      avgt  200     3.079 ±   0.092  ns/op
+     * MimicTest.benchmarkSetClassValue       avgt  200     2.371 ±   0.014  ns/op
      * </pre>
      */
     @Test
@@ -193,22 +185,22 @@ public class MimicTest {
             .include(this.getClass().getName() + ".benchmark*")
 
             .mode(Mode.AverageTime)
-            .timeUnit(TimeUnit.MICROSECONDS)
+            .timeUnit(TimeUnit.NANOSECONDS)
 
             .warmupTime(TimeValue.seconds(1))
             .warmupIterations(2)
 
             .measurementTime(TimeValue.microseconds(1))
             .measurementIterations(100)
-
+            .operationsPerInvocation(100)
             .threads(2)
-            .forks(1)
+            .forks(2)
 
             .shouldFailOnError(true)
-            .shouldDoGC(true)
+            .shouldDoGC(false)
 
-            //.jvmArgs("-XX:+UnlockDiagnosticVMOptions", "-XX:+PrintInlining")
-            //.addProfiler(WinPerfAsmProfiler.class)
+            // .jvmArgs("-XX:+UnlockDiagnosticVMOptions", "-XX:+PrintInlining")
+            //.addProfiler(JavaFlightRecorderProfiler.class)
 
             .build()).run();
     }
@@ -255,7 +247,7 @@ public class MimicTest {
     @Measurement(iterations = 20, time = 300, timeUnit = TimeUnit.MILLISECONDS)
     @OperationsPerInvocation(100)
     @Benchmark
-    public void benchmarkFactory(BenchmarkState state, Blackhole bh) {
+    public void benchmarkMimicFactory(BenchmarkState state, Blackhole bh) {
         for (int i = 0; i < 100; i++)
             bh.consume(Mimic.Factory.factory(SimpleConvValidate.class, state.supplier));
     }
@@ -266,7 +258,7 @@ public class MimicTest {
     @Measurement(iterations = 20, time = 300, timeUnit = TimeUnit.MILLISECONDS)
     @OperationsPerInvocation(100)
     @Benchmark
-    public void benchmarkCreateInstant(BenchmarkState state, Blackhole bh) {
+    public void benchmarkMimicCreateInstant(BenchmarkState state, Blackhole bh) {
         for (int i = 0; i < 100; i++)
             bh.consume(state.factory.build(null));
     }
@@ -288,7 +280,7 @@ public class MimicTest {
     @Measurement(iterations = 20, time = 300, timeUnit = TimeUnit.MILLISECONDS)
     @OperationsPerInvocation(100)
     @Benchmark
-    public void benchmarkSetValue(BenchmarkState state, Blackhole bh) {
+    public void benchmarkMimicSetValue(BenchmarkState state, Blackhole bh) {
         for (int i = 0; i < 100; i++)
             bh.consume(state.instance.integer(i));
     }
@@ -310,7 +302,7 @@ public class MimicTest {
     @Measurement(iterations = 20, time = 300, timeUnit = TimeUnit.MILLISECONDS)
     @OperationsPerInvocation(100)
     @Benchmark
-    public void benchmarkReadValue(BenchmarkState state, Blackhole bh) {
+    public void benchmarkMimicReadValue(BenchmarkState state, Blackhole bh) {
         for (int i = 0; i < 100; i++)
             bh.consume(state.instance.integer());
     }
