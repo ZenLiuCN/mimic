@@ -61,17 +61,30 @@ public interface Mimic<T> {
         "underlyingMap",
         "underlyingNaming",
         "signature",
+        "validate",
         "underlyingType",
-        "underlyingInstance"
+        "underlyingInstance",
+        "underlyingCopyTo"
     );
 
     /**
      * <b>DO NOT OVERRIDE</b>: it will implemented by Factory.<br/>
-     * fetch the storage map: Key is Field Number.
+     * fetch the storage map: Key is Field Name.
      *
      * @return map
      */
-    default Map<Integer, Object> underlyingMap() {
+    default Map<String, Object> underlyingMap() {
+        throw new NotImplementedException();
+    }
+
+    /**
+     * b>DO NOT OVERRIDE</b>: it will implemented by Factory.<br/>
+     * fetch the storage map: Key is Field Number.
+     *
+     * @param instance Other Instance Mimic
+     * @param mapping  current Instant Field name to Other Instance field name
+     */
+    default void underlyingCopyTo(Mimic<?> instance, Map<String, String> mapping) {
         throw new NotImplementedException();
     }
 
@@ -475,12 +488,12 @@ public interface Mimic<T> {
                 assert fn != null;
                 if (List.class.isAssignableFrom(type)) {
                     return new Factory.Processor[]{
-                        x -> x == null ? null : seq((Collection<Map<Integer, Object>>) x).map(fn::innerBuild).toList(),
+                        x -> x == null ? null : seq((Collection<Map<String, Object>>) x).map(fn::innerBuild).toList(),
                         x -> x == null ? null : seq((Collection<Mimic<?>>) x).map(Mimic::underlyingMap).toList()
                     };
                 } else if (Set.class.isAssignableFrom(type)) {
                     return new Factory.Processor[]{
-                        x -> x == null ? null : seq((Set<Map<Integer, Object>>) x).map(fn::innerBuild).toSet(),
+                        x -> x == null ? null : seq((Set<Map<String, Object>>) x).map(fn::innerBuild).toSet(),
                         x -> x == null ? null : seq((Collection<Mimic<?>>) x).map(Mimic::underlyingMap).toSet()
                     };
                 } else throw new IllegalStateException("unsupported container type: " + type);
@@ -488,7 +501,7 @@ public interface Mimic<T> {
                 val fn = supplier.apply(anon.get(0).value());
                 assert fn != null;
                 return new Factory.Processor[]{
-                    x -> x == null ? null : seq((Map<Object, Map<Integer, Object>>) x)
+                    x -> x == null ? null : seq((Map<Object, Map<String, Object>>) x)
                         .map(e -> e.map2(fn::innerBuild))
                         .toMap(Tuple2::v1, Tuple2::v2),
                     x -> x == null ? null : seq((Map<Object, Mimic<?>>) x)
@@ -505,7 +518,7 @@ public interface Mimic<T> {
                     for (int i = 0; i < x.length; i++) {
                         val fn = fns.get(i);
                         if (fn != null) {
-                            x[i] = fn.innerBuild((Map<Integer, Object>) x[i]);
+                            x[i] = fn.innerBuild((Map<String, Object>) x[i]);
                         }
                     }
                     return dynamicConstruct(x);
@@ -713,7 +726,7 @@ public interface Mimic<T> {
          * @param map a FieldNumber => Value Map as Underlying storage.
          * @return a Instance
          */
-        T innerBuild(@NotNull Map<Integer, Object> map);
+        T innerBuild(@NotNull Map<String, Object> map);
 
         /**
          * build a New Instance ,with Data (FieldName=>Value), or just empty|null
@@ -825,7 +838,7 @@ public interface Mimic<T> {
                 }
             }*/
 
-            final class Fields {
+/*            final class Fields {
                 final String names;
                 final int[] index;
                 private transient List<String> list;
@@ -902,7 +915,7 @@ public interface Mimic<T> {
                         System.out.println(i + ":" + f.of(i));
                     }
                 }
-            }
+            }*/
 
             interface FactorySupplier extends Function<Class<?>, Factory<?>> {
             }
@@ -955,7 +968,7 @@ public interface Mimic<T> {
                             return Tuple.tuple(f, isGetter,
                                 new Processor[]{
                                     //for getter
-                                    x -> x == null ? null : fn.innerBuild((Map<Integer, Object>) x),
+                                    x -> x == null ? null : fn.innerBuild((Map<String, Object>) x),
                                     x -> x == null ? null : ((Mimic<?>) x).underlyingMap()
                                     //for setter
                                 }
@@ -1011,6 +1024,7 @@ public interface Mimic<T> {
                 val entity = type.getName();
                 val converter = converters(type);
                 val gs = type.getDeclareMethods(m -> isSetter(m, type) || isGetter(m, type));
+                //setter that returns self
                 val chained = seq(gs).filter(m -> isSetter(m, type))
                     .map(m -> {
                         final String f = fieldName(m);
@@ -1018,7 +1032,7 @@ public interface Mimic<T> {
                             return f;
                         }
                         return null;
-                    }).filter(Objects::nonNull).toList();
+                    }).filter(Objects::nonNull).toSet();
                 val conv = processors(gs, this::fieldName, converter::get, factorySupplier);
                 val validators = seq(gs)
                     .map(m -> {
@@ -1072,7 +1086,6 @@ public interface Mimic<T> {
                         val con = conv.get(f);
                         val val = validator.get(f);
                         val chain = chained.contains(f);
-                        val n = (int) (long) t.v2;
                         Setter set;
                         Getter get;
                         if (con != null && val != null) {
@@ -1081,59 +1094,63 @@ public interface Mimic<T> {
                             set = chain ?
                                 (proxy, map, value) -> {
                                     val.valid(value);
-                                    map.put(n, setp.process(value));
+                                    map.put(f, setp.process(value));
                                     return proxy;
                                 }
                                 :
                                 (proxy, map, value) -> {
                                     val.valid(value);
-                                    map.put(n, setp.process(value));
+                                    map.put(f, setp.process(value));
                                     return null;
                                 };
-                            get = (map) -> getp.process(map.get(n));
-                            vali[0] = vali[0] == null ? m -> val.valid(getp.process(m.get(n))) : vali[0].then(m -> val.valid(getp.process(m.get(n))));
+                            get = (map) -> getp.process(map.get(f));
+                            vali[0] = vali[0] == null
+                                ? m -> val.valid(getp.process(m.get(f)))
+                                : vali[0].then(m -> val.valid(getp.process(m.get(f))));
                         } else if (con != null) { //convert only
                             val setp = con[1];
                             val getp = con[0];
                             set = chain ?
                                 (proxy, map, value) -> {
-                                    map.put(n, setp.process(value));
+                                    map.put(f, setp.process(value));
                                     return proxy;
                                 }
                                 :
                                 (proxy, map, value) -> {
-                                    map.put(n, setp.process(value));
+                                    map.put(f, setp.process(value));
                                     return null;
                                 };
-                            get = (map) -> getp.process(map.get(n));
+                            get = (map) -> getp.process(map.get(f));
                         } else if (val != null) {//validator only
                             set = chain ?
                                 (proxy, map, value) -> {
                                     val.valid(value);
-                                    map.put(n, value);
+                                    map.put(f, value);
                                     return proxy;
                                 }
                                 :
                                 (proxy, map, value) -> {
                                     val.valid(value);
-                                    map.put(n, value);
+                                    map.put(f, value);
                                     return null;
                                 };
-                            get = (map) -> map.get(n);
-                            vali[0] = vali[0] == null ? m -> val.valid(m.get(n)) : vali[0].then(m -> val.valid(m.get(n)));
+                            get = (map) -> map.get(f);
+                            vali[0] = vali[0] == null
+                                ? m -> val.valid(m.get(f))
+                                : vali[0].then(m -> val.valid(m.get(f)));
                         } else {
                             set = chain ?
                                 (proxy, map, value) -> {
 
-                                    map.put(n, value);
+                                    map.put(f, value);
                                     return proxy;
                                 }
                                 :
                                 (proxy, map, value) -> {
-                                    map.put(n, value);
+                                    map.put(f, value);
                                     return null;
                                 };
-                            get = (map) -> map.get(n);
+                            get = (map) -> map.get(f);
                         }
                         return tuple(t.v1, tuple(get, set));
                     }).toMap(Tuple2::v1, Tuple2::v2);
@@ -1193,11 +1210,11 @@ public interface Mimic<T> {
         }
 
         interface Getter {
-            Object get(Map<Integer, Object> data);
+            Object get(Map<String, Object> data);
         }
 
         interface Setter {
-            Object set(Object proxy, Map<Integer, Object> data, Object value);
+            Object set(Object proxy, Map<String, Object> data, Object value);
         }
 
         interface Validator {
@@ -1212,7 +1229,7 @@ public interface Mimic<T> {
         }
 
         interface Validation {
-            void valid(Map<Integer, Object> data) throws IllegalArgumentException;
+            void valid(Map<String, Object> data) throws IllegalArgumentException;
 
             default Validation then(Validation v) {
                 return o -> {
@@ -1228,19 +1245,24 @@ public interface Mimic<T> {
 
         @ApiStatus.Internal
         final class FactoryImpl<T> implements Factory<T> {
-            static final Map<String, Function4<Class<?>, Map<Integer, Object>, Object, Object[], Object>> common = new HashMap<>();
+            static final Map<String, Function4<Class<?>, Map<String, Object>, Object, Object[], Object>> common = new HashMap<>();
 
             static {
                 //@formatter:off
                 common.put("hashCode",(type,map,proxy,args)->map.hashCode()+type.hashCode());
+                common.put("underlyingCopyTo",(type,map,proxy,args)->{
+                    val m=(Mimic<?>)args[0];
+                    @SuppressWarnings("unchecked") val i=(Map<String,String>)args[1];
+                    i.forEach((k,k2)->m.underlyingMap().put(k2,map.get(k)));
+                    return null;
+                });
                 common.put("toString",(type,map,proxy,args)->type.getSimpleName()+"@"+Objects.hashCode(proxy)+"@"+map);
                 common.put("equals",(type,map,proxy,args)->type.isAssignableFrom(args[0].getClass()) && ((Mimic<?>)args[0]).underlyingMap().equals(map) );
                 //@formatter:on
             }
 
             final Strategy strategy;
-            final Supplier<Map<Integer, Object>> mapSupplier;
-            final Strategy.Fields fields;
+            final Supplier<Map<String, Object>> mapSupplier;
             final Validation validation;
             final Map<String, Tuple2<Getter, Setter>> methods;
             final HashMap<String, String> names;
@@ -1258,24 +1280,31 @@ public interface Mimic<T> {
 
                 val v =
                     strategy.build(classes, cache::apply);
-                fields = new Strategy.Fields(v.v1);
+      /*          fields = new Strategy.Fields(v.v1);
                 if (fields.isEmpty())
-                    throw new IllegalStateException("the type [" + type + "] found no fields exists!");
+                    throw new IllegalStateException("the type [" + type + "] found no fields exists!");*/
                 validation = v.v2;
                 methods = v.v3;
+                this.names = new HashMap<>();
+                Seq.of(type.getMethods()).forEach(m -> {
+                    val n = strategy.fieldName(m);
+                    if (!common.containsKey(n) && !underlyingNames.contains(n))
+                        this.names.put(m.getName(), n);
+                });
                 if (mimicked.mapFactory() != Void.class) {
                     val f = mimicked.mapFactory().getField(mimicked.field());
                     if (Supplier.class.isAssignableFrom(f.getType())) {
-                        @SuppressWarnings("unchecked") val x = (Supplier<Map<Integer, Object>>) f.get(mimicked.mapFactory());
+                        @SuppressWarnings("unchecked") val x = (Supplier<Map<String, Object>>) f.get(mimicked.mapFactory());
                         this.mapSupplier = x;
                     } else if (IntFunction.class.isAssignableFrom(f.getType())) {
-                        @SuppressWarnings("unchecked") val x = (IntFunction<Map<Integer, Object>>) f.get(mimicked.mapFactory());
-                        this.mapSupplier = () -> x.apply(fields.max());
+                        @SuppressWarnings("unchecked") val x = (IntFunction<Map<String, Object>>) f.get(mimicked.mapFactory());
+                        this.mapSupplier = () -> x.apply(this.names.values().size());
                     } else throw new IllegalStateException("Mimicked defined invalid map factory!");
                 } else
-                    this.mapSupplier = mimicked.concurrent() ? () -> new ConcurrentHashMap<>(fields.max() + 1) : () -> new HashMap<>(fields.max() + 1);
-                this.names = new HashMap<>();
-                Seq.of(type.getMethods()).forEach(m -> this.names.put(m.getName(), strategy.fieldName(m)));
+                    this.mapSupplier = mimicked.concurrent() ?
+                        () -> new ConcurrentHashMap<>(this.names.values().size() + 1)
+                        : () -> new HashMap<>(this.names.values().size() + 1);
+
             }
 
             private Constructor<MethodHandles.Lookup> constructor;
@@ -1297,16 +1326,13 @@ public interface Mimic<T> {
 
 
             @SuppressWarnings("unchecked")
-            public T innerBuild(@NotNull Map<Integer, Object> map) {
+            public T innerBuild(@NotNull Map<String, Object> map) {
                 val underlying = map;
                 val obj = new Object[1];
                 obj[0] = Proxy.newProxyInstance(type.getClassLoader(), new Class[]{type}, ((proxy, method, args) -> {
-                    val name = names.get(method.getName());
-                    if (name == null) throw new IllegalStateException("Cannot invoke unknown method of " + method);
+                    val name = method.getName();
                     val length = (args == null ? 0 : args.length);
-                    if (common.containsKey(name) && length == 0) {
-                        return common.get(name).apply(type, underlying, proxy, args);
-                    } else if (name.equals("equals") && length == 1) {
+                    if (name.equals("equals") && length == 1) {
                         return common.get("equals").apply(type, underlying, proxy, args);
                     } else if (method.isDefault() && length == 0 && name.equals("validate")) {
                         if (validation != null) validation.valid(underlying);
@@ -1315,7 +1341,7 @@ public interface Mimic<T> {
                     } else if (length == 0 && name.equals("underlyingMap")) {
                         return underlying;
                     } else if (length == 0 && name.equals("underlyingNaming")) {
-                        return Collections.unmodifiableList(fields.toList());
+                        return Collections.unmodifiableList(new ArrayList<>(new HashSet<>(this.names.values())));
                     } else if (length == 0 && name.equals("underlyingType")) {
                         return type;
                     } else if (length == 0 && name.equals("underlyingInstance")) {
@@ -1324,8 +1350,11 @@ public interface Mimic<T> {
                         return type.getName();
                     } else if (method.isDefault()) {
                         return invokeDefault(method, obj, args);
+                    } else if (common.containsKey(name)) {
+                        return common.get(name).apply(type, underlying, proxy, args);
                     } else if (length <= 1) {
-                        val f = strategy.fieldName(method);
+                        val f = names.get(name);
+                        if (f == null) throw new IllegalStateException("Cannot invoke unknown method of " + method);
                         val getter = length == 0;
                         val t = methods.get(f);
                         if (t != null && getter && t.v1 != null) {
@@ -1345,13 +1374,7 @@ public interface Mimic<T> {
             public T build(@Nullable Map<String, Object> map) {
                 if (map == null) return innerBuild(mapSupplier.get());
                 val m = mapSupplier.get();
-                map.forEach((k, v) -> {
-                    val i = fields.indexOf(k);
-                    if (i < 0) {
-                        throw new IllegalStateException("field" + k + " not exists ");
-                    }
-                    m.put(i, v);
-                });
+                m.putAll(map);
                 return innerBuild(m);
             }
         }

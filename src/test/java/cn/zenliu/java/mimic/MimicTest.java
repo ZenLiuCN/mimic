@@ -40,14 +40,14 @@ public class MimicTest {
         val instance = f.build(null);
         instance.integer(1);
         val m = instance.underlyingMap();
-        m.put(2, 3);
+        m.put("integer1", 3);
         assertEquals(1, instance.integer());
         assertEquals(m, instance.integer(2).underlyingMap());
         assertEquals(new ArrayList<>(Collections.singletonList("integer")), instance.underlyingNaming());
         assertEquals(Simple.class.getSimpleName() + "@" + instance.hashCode() + "@" + m.toString(), instance.toString());
         assertEquals(Simple.class, instance.underlyingType());
         assertNotEquals(f.build(null).integer(2), instance);
-        m.remove(2);
+        m.remove("integer1");
         assertEquals(f.build(null).integer(2), instance);
     }
 
@@ -64,14 +64,14 @@ public class MimicTest {
         val instance = f.build(null);
         instance.setInteger(1);
         val m = instance.underlyingMap();
-        m.put(2, 3);
+        m.put("integer1", 3);
         assertEquals(1, instance.getInteger());
         assertEquals(m, instance.setInteger(2).underlyingMap());
         assertEquals(new ArrayList<>(Collections.singletonList("integer")), instance.underlyingNaming());
         assertEquals(SimpleBean.class.getSimpleName() + "@" + instance.hashCode() + "@" + m.toString(), instance.toString());
         assertEquals(SimpleBean.class, instance.underlyingType());
         assertNotEquals(f.build(null).setInteger(2), instance);
-        m.remove(2);
+        m.remove("integer1");
         assertEquals(f.build(null).setInteger(2), instance);
     }
 
@@ -91,14 +91,14 @@ public class MimicTest {
         val instance = f.build(null);
         instance.integer(1);
         val m = instance.underlyingMap();
-        m.put(2, 3);
+        m.put("integer1", 3);
         assertEquals(1, instance.integer());
         assertEquals(m, instance.integer(2).underlyingMap());
         assertEquals(new ArrayList<>(Collections.singletonList("integer")), instance.underlyingNaming());
         assertEquals(SimpleValidate.class.getSimpleName() + "@" + instance.hashCode() + "@" + m.toString(), instance.toString());
         assertEquals(SimpleValidate.class, instance.underlyingType());
         assertNotEquals(f.build(null).integer(2), instance);
-        m.remove(2);
+        m.remove("integer1");
         assertEquals(f.build(null).integer(2), instance);
         assertThrows(IllegalArgumentException.class, () -> {
             try {
@@ -132,14 +132,14 @@ public class MimicTest {
         val instance = f.build(null);
         instance.integer(1);
         val m = instance.underlyingMap();
-        m.put(2, 3);
+        m.put("integer1", 3);
         assertEquals(1, instance.integer());
         assertEquals(m, instance.integer(2).underlyingMap());
         assertEquals(new ArrayList<>(Collections.singletonList("integer")), instance.underlyingNaming());
         assertEquals(SimpleConvValidate.class.getSimpleName() + "@" + instance.hashCode() + "@" + m.toString(), instance.toString());
         assertEquals(SimpleConvValidate.class, instance.underlyingType());
         assertNotEquals(f.build(null).integer(2), instance);
-        m.remove(2);
+        m.remove("integer1");
         //TODO bytes dose not equal:
         // option one: use String <- current choose
         // option two: just not equal
@@ -195,7 +195,15 @@ public class MimicTest {
      * MimicTest.benchmarkMimicSetValue       avgt  200    48.529 ±   2.186  ns/op
      * MimicTest.benchmarkReadClassValue      avgt  200     2.951 ±   0.022  ns/op
      * MimicTest.benchmarkSetClassValue       avgt  200     2.411 ±   0.024  ns/op
-     *
+     *<b>precompiled string hashmap</b>
+     * Benchmark                              Mode  Cnt      Score     Error  Units
+     * MimicTest.benchmarkCreateClassInstant  avgt  200      3.814 ±   0.232  ns/op
+     * MimicTest.benchmarkMimicCreateInstant  avgt  200    320.937 ±  10.916  ns/op
+     * MimicTest.benchmarkMimicFactory        avgt  200  11750.703 ± 607.400  ns/op
+     * MimicTest.benchmarkMimicReadValue      avgt  200     43.417 ±   2.778  ns/op
+     * MimicTest.benchmarkMimicSetValue       avgt  200     49.799 ±   2.886  ns/op
+     * MimicTest.benchmarkReadClassValue      avgt  200      2.967 ±   0.042  ns/op
+     * MimicTest.benchmarkSetClassValue       avgt  200      2.520 ±   0.096  ns/op
      * </pre>
      */
     @Test
@@ -356,7 +364,7 @@ public class MimicTest {
         val instance = f.build(null);
         instance.integer(1);
         val m = instance.underlyingMap();
-        m.put(2, 3);
+        m.put("integer", 3);
         assertEquals(1, instance.integer());
         assertEquals(m, instance.integer(2).underlyingMap());
         assertEquals(new ArrayList<>(Collections.singletonList("integer")), instance.underlyingNaming());
