@@ -22,7 +22,7 @@ class MimicTest {
     public interface Fluent extends Mimic {
         long id();
 
-        Fluent id(long val);
+        void id(long val);
 
         @Validation(property = "notNull")
         Long identity();

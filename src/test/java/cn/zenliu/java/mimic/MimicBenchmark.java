@@ -117,7 +117,7 @@ public class MimicBenchmark {
     @Timeout(time = timeoutTime)
     @Measurement(iterations = measurementIterations, time = measurementTime, timeUnit = TimeUnit.MICROSECONDS)
     public void proxyMimicBenchSet(BenchmarkState st, Blackhole bh) {
-        bh.consume(st.instance.id(100L));
+        st.instance.id(100L);
     }
 
     @Benchmark
