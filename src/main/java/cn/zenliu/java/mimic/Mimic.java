@@ -516,6 +516,10 @@ public interface Mimic {
                 protected final List<String> internalChange = new ArrayList<>();
                 protected final String name;
 
+                void initialAllChanged() {
+                    internalChange.addAll(info.keySet());
+                }
+
                 protected Base(Map<String, Object> inner, Map<String, PropertyInfo> info, List<String> changes, String name) {
                     this.inner = inner;
                     this.info = info;
@@ -637,7 +641,9 @@ public interface Mimic {
 
                 @Override
                 public Mimic buildLazy(Map<String, Object> data) {
-                    return (Mimic) lazy.apply(data, changeDecider.get().apply(type) ? new ArrayList<>() : null);
+                    val v = (Mimic) lazy.apply(data, changeDecider.get().apply(type) ? new ArrayList<>() : null);
+                    if (data != null && !data.isEmpty()) ((Base) v).initialAllChanged();
+                    return v;
                 }
 
                 @Override

@@ -63,6 +63,11 @@ public class MimicBenchmark {
      * MimicBenchmark.proxyMimicBenchBuild  avgt  100  1973.709 ± 2154.795  ns/op
      * MimicBenchmark.proxyMimicBenchGet    avgt  100    19.943 ±    8.123  ns/op
      * MimicBenchmark.proxyMimicBenchSet    avgt  100   115.697 ±   27.901  ns/op
+     * <b>ASM Advice Lazy Mode</b>
+     * Benchmark                            Mode  Cnt     Score       Error  Units
+     * MimicBenchmark.proxyMimicBenchBuild  avgt  100  1763.303 ±  3117.286  ns/op
+     * MimicBenchmark.proxyMimicBenchGet    avgt  100  9174.930 ± 28940.780  ns/op
+     * MimicBenchmark.proxyMimicBenchSet    avgt  100   170.031 ±    86.661  ns/op
      * </pre>
      */
     @Test
@@ -83,18 +88,12 @@ public class MimicBenchmark {
             data.put("idOfUser", "10");
             data.put("user", BigDecimal.valueOf(10));
 
-            //Mimic.ByteASM.enable(true);
+            Mimic.ByteASM.enable(true);
             instance = Mimic.newInstance(MimicTest.Flue.class, data);
         }
     }
 
 
-    /**
-     * <pre>
-     *     Benchmark                       Mode  Cnt     Score      Error  Units
-     *      * MimicBenchmark.proxyMimicBuild  avgt  100  4242.168 ± 1732.591  ns/op
-     * </pre>
-     */
     @Benchmark
     @BenchmarkMode(Mode.AverageTime)
     @OutputTimeUnit(TimeUnit.NANOSECONDS)
