@@ -44,6 +44,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.*;
 
+import static net.bytebuddy.matcher.ElementMatchers.named;
 import static org.jooq.lambda.Seq.seq;
 import static org.jooq.lambda.tuple.Tuple.tuple;
 
@@ -513,12 +514,12 @@ public interface Mimic {
                 protected final Map<String, Object> inner;
                 protected final Map<String, PropertyInfo> info;
                 protected final List<String> changes;
-                protected final List<String> internalChange = new ArrayList<>();
+                // protected final List<String> internalChange = new ArrayList<>();
                 protected final String name;
 
-                void initialAllChanged() {
+              /*  void initialAllChanged() {
                     internalChange.addAll(info.keySet());
-                }
+                }*/
 
                 protected Base(Map<String, Object> inner, Map<String, PropertyInfo> info, List<String> changes, String name) {
                     this.inner = inner;
@@ -541,7 +542,7 @@ public interface Mimic {
                     info.get(prop).validateSetter(value);
                     val v = info.get(prop).invokeSetter(value);
                     inner.put(prop, v);
-                    internalChange.add(prop);//add internal changes log
+                    //internalChange.add(prop);//add internal changes log
                     if (changes != null) changes.add(prop);
                 }
 
@@ -565,13 +566,13 @@ public interface Mimic {
                 }
 
                 //async internal data to instance field
-                public Object isChange(String field) {
+           /*     public Object isChange(String field) {
                     if (internalChange.contains(field)) {
                         internalChange.remove(field);
                         return get(field);
                     }
                     return null;
-                }
+                }*/
 
                 //region Defaults
                 private static boolean DEFAULT_BOOLEAN;
@@ -642,7 +643,7 @@ public interface Mimic {
                 @Override
                 public Mimic buildLazy(Map<String, Object> data) {
                     val v = (Mimic) lazy.apply(data, changeDecider.get().apply(type) ? new ArrayList<>() : null);
-                    if (data != null && !data.isEmpty()) ((Base) v).initialAllChanged();
+                    //if (data != null && !data.isEmpty()) ((Base) v).initialAllChanged();
                     return v;
                 }
 
@@ -743,11 +744,11 @@ public interface Mimic {
                 });
             }
 
-            LoadingCache<Class, Functor> functorCache = Caffeine
+  /*          LoadingCache<Class, Functor> functorCache = Caffeine
                 .newBuilder()
                 .softValues()
                 .maximumSize(cacheSize.get())
-                .build(Asm::functorBuilder);
+                .build(Asm::functorBuilder);*/
 
             @AllArgsConstructor(staticName = "of")
             final class Functor {
@@ -816,6 +817,7 @@ public interface Mimic {
 
             }
 
+            @Deprecated
             class GetterAdvices {
                 //                @Advice.OnMethodEnter(suppress = Throwable.class)
                 @Advice.OnMethodExit()
@@ -828,12 +830,12 @@ public interface Mimic {
                     // val info = functorCache.get(type);
                     // String field = info.extractor.apply(method);
                     val field = commonExtract(method);
-                    val base = ((Base) self).isChange(field);
-                    if (base != null && value != null) {
+                    //val base = ((Base) self).isChange(field);
+                   /* if (base != null && value != null) {
                         functorCache.get(type).functor.get(field).v2.accept(self, base);
                         // System.out.println("returning updated");
                         return base;
-                    }
+                    }*/
                     // System.out.println("returning field");
                     return value;
                 }
@@ -848,6 +850,16 @@ public interface Mimic {
                 if (info == null) throw new IllegalStateException("could not generate mimic info from " + cls);
                 val ifaces = new ArrayList<>(Arrays.asList(cls.getInterfaces()));
                 ifaces.add(0, cls);
+                final Map<String, Tuple2<Function<Object, Object>, BiConsumer<Object, Object>>> functor = new HashMap<>();
+                final Function<Method, Class> findDeclared = Sneaky.function(x -> {
+                    for (Class<?> c : ifaces) {
+                        for (Method m : c.getDeclaredMethods()) {
+                            if (m.equals(x))
+                                return c;
+                        }
+                    }
+                    return null;
+                });
                 final BiFunction<Map, List, T> ctorLazy;
                 final BiFunction<Map, List, T> ctorEager;
 
@@ -865,22 +877,35 @@ public interface Mimic {
                     val typo = entry.getValue().v3.type;
                     lazy = lazy.defineField(prop, typo, Modifier.PUBLIC);
                     eager = eager.defineField(prop, typo, Modifier.PUBLIC);
+                    Tuple2<Function<Object, Object>, BiConsumer<Object, Object>> fn = tuple(null, null);
                     //getter
                     {
                         val m = entry.getValue().v1;
                         if (m != null) {
+                            {
+                                fn = fn.map1($ -> {
+                                    try {
+                                        return (Function<Object, Object>) (Function) getter(
+                                            findDeclared.apply(m),
+                                            typo,
+                                            m.getName())
+                                            .orElseThrow(() -> new IllegalStateException("create functor for Get fail"));
+                                    } catch (Throwable e) {
+                                        throw new RuntimeException(e);
+                                    }
+                                });
+                            }
                             eager = eager.defineMethod(m.getName(), m.getReturnType(), Modifier.PUBLIC)
                                 .intercept(FieldAccessor.ofField(prop));
 
                             lazy = lazy.defineMethod(m.getName(), m.getReturnType(), Modifier.PUBLIC)
                                 .intercept(
-                                    Advice.to(GetterAdvices.class).wrap(FieldAccessor.ofField(prop))
-                                  /*      .wrap(MethodCall
-                                            .invoke(Base.GET)
-                                            .with(prop).withField(prop)
-                                            .setsField(named(prop))
-                                            .withAssigner(Assigner.DEFAULT, Assigner.Typing.DYNAMIC)
-                                            .andThen(FieldAccessor.ofField(prop)))*/
+                                    MethodCall
+                                        .invoke(Base.GET)
+                                        .with(prop).withField(prop)
+                                        .setsField(named(prop))
+                                        .withAssigner(Assigner.DEFAULT, Assigner.Typing.DYNAMIC)
+                                        .andThen(FieldAccessor.ofField(prop))
                                 );
                         }
                     }
@@ -888,6 +913,21 @@ public interface Mimic {
                     {
                         val m = entry.getValue().v2;
                         if (m != null) {
+                            {
+                                fn = fn.map2($ -> {
+                                    try {
+                                        return (BiConsumer<Object, Object>) (BiConsumer) setter(
+                                            findDeclared.apply(m),
+                                            typo,
+                                            m.getName(),
+                                            m.getReturnType() != Void.TYPE
+                                        ).orElseThrow(() -> new IllegalStateException("create functor for Set fail"));
+                                    } catch (Throwable e) {
+                                        throw new RuntimeException(e);
+                                    }
+                                });
+                                functor.put(prop, fn);
+                            }
                             eager = m.getReturnType() == Void.TYPE ?
                                 eager.defineMethod(m.getName(), m.getReturnType(), modifierSync)
                                     .withParameters(Arrays.asList(m.getParameterTypes()))
@@ -974,11 +1014,11 @@ public interface Mimic {
                     };
                 }
                 {
-                    val functor = functorCache.get(cls);
+                    // val functor = functorBuilder(cls);//build functor
                     val ctor = eager.make().load(cls.getClassLoader()).getLoaded().getConstructor(Map.class, Map.class, List.class, String.class);
                     val builder = info.mapBuilder;
                     BiConsumer<Object, Base> copier = null;
-                    for (val e : functor.functor.entrySet()) {
+                    for (val e : functor.entrySet()) {
                         val fn = e.getValue().v2;
                         val p = e.getKey();
                         BiConsumer<Object, Base> field = (t, b) -> fn.accept(t, b.get(p));

@@ -35,7 +35,7 @@ public class MimicBenchmark {
                 .measurementTime(TimeValue.milliseconds(1))
                 .measurementIterations(measurementIterations)
                 .threads(5)
-                .forks(5)
+                .forks(2)
                 .shouldFailOnError(true)
                 .shouldDoGC(true)
                 //.jvmArgs("-XX:+UnlockDiagnosticVMOptions", "-XX:+PrintInlining")
@@ -95,11 +95,6 @@ public class MimicBenchmark {
 
 
     @Benchmark
-    @BenchmarkMode(Mode.AverageTime)
-    @OutputTimeUnit(TimeUnit.NANOSECONDS)
-    @Warmup(iterations = warmUpBatchSize, batchSize = warmUpBatchSize, time = warmUpTime, timeUnit = TimeUnit.MICROSECONDS)
-    @Timeout(time = timeoutTime)
-    @Measurement(iterations = measurementIterations, time = measurementTime, timeUnit = TimeUnit.MICROSECONDS)
     public void proxyMimicBenchBuild(Blackhole bh) {
         bh.consume(Mimic.newInstance(MimicTest.Flue.class, null));
     }
@@ -110,21 +105,11 @@ public class MimicBenchmark {
      * </pre>
      */
     @Benchmark
-    @BenchmarkMode(Mode.AverageTime)
-    @OutputTimeUnit(TimeUnit.NANOSECONDS)
-    @Warmup(iterations = warmUpBatchSize, batchSize = warmUpBatchSize, time = warmUpTime, timeUnit = TimeUnit.MICROSECONDS)
-    @Timeout(time = timeoutTime)
-    @Measurement(iterations = measurementIterations, time = measurementTime, timeUnit = TimeUnit.MICROSECONDS)
     public void proxyMimicBenchSet(BenchmarkState st, Blackhole bh) {
         st.instance.id(100L);
     }
 
     @Benchmark
-    @BenchmarkMode(Mode.AverageTime)
-    @OutputTimeUnit(TimeUnit.NANOSECONDS)
-    @Warmup(iterations = warmUpBatchSize, batchSize = warmUpBatchSize, time = warmUpTime, timeUnit = TimeUnit.MICROSECONDS)
-    @Timeout(time = timeoutTime)
-    @Measurement(iterations = measurementIterations, time = measurementTime, timeUnit = TimeUnit.MICROSECONDS)
     public void proxyMimicBenchGet(BenchmarkState st, Blackhole bh) {
         bh.consume(st.instance.id());
     }
