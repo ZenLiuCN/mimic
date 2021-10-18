@@ -1,387 +1,422 @@
 package cn.zenliu.java.mimic;
-
+import com.zaxxer.hikari.HikariConfig;
+import com.zaxxer.hikari.HikariDataSource;
 import lombok.val;
+import org.jooq.DataType;
+import org.jooq.Field;
+import org.jooq.SQLDialect;
+import org.jooq.impl.DefaultConfiguration;
+import org.jooq.impl.SQLDataType;
 import org.junit.jupiter.api.Test;
-import org.openjdk.jmh.annotations.*;
-import org.openjdk.jmh.infra.Blackhole;
-import org.openjdk.jmh.runner.Runner;
-import org.openjdk.jmh.runner.RunnerException;
-import org.openjdk.jmh.runner.options.OptionsBuilder;
-import org.openjdk.jmh.runner.options.TimeValue;
 
-import java.util.ArrayList;
+import java.math.BigDecimal;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicReference;
-import java.util.function.Function;
+import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-public class MimicTest {
-    static HashMap<Class<?>, Mimic.Factory<?>> cache = new HashMap<>();
-    //loader cache simulation
-    final static AtomicReference<Function<Class<?>, Mimic.Factory<?>>> supplier = new AtomicReference<>();
+class MimicTest {
+    @Mimic.Dao.Entity
+    public interface Fluent extends Mimic {
+        long id();
 
-    static {
-        supplier.set(c -> cache.computeIfAbsent(c, supplier.get()));
-    }
+        Fluent id(long val);
 
-    @Mimic.Configuring.Mimicked(fluent = true)
-    interface Simple extends Mimic<Simple> {
-        Integer integer();
+        @Validation(property = "notNull")
+        Long identity();
 
-        Simple integer(int integer);
-    }
+        Fluent identity(Long val);
 
-    @Test
-    void simpleFluent() {
-        val f = Mimic.Factory.factory(Simple.class, supplier.get());
-        val instance = f.build(null);
-        instance.integer(1);
-        val m = instance.underlyingMap();
-        m.put("integer1", 3);
-        assertEquals(1, instance.integer());
-        assertEquals(m, instance.integer(2).underlyingMap());
-        assertEquals(new ArrayList<>(Collections.singletonList("integer")), instance.underlyingNaming());
-        assertEquals(Simple.class.getSimpleName() + "@" + instance.hashCode() + "@" + m.toString(), instance.toString());
-        assertEquals(Simple.class, instance.underlyingType());
-        assertNotEquals(f.build(null).integer(2), instance);
-        m.remove("integer1");
-        assertEquals(f.build(null).integer(2), instance);
-    }
+        @AsString
+        Long idOfUser();
 
-    @Mimic.Configuring.Mimicked
-    interface SimpleBean extends Mimic<SimpleBean> {
-        Integer getInteger();
+        Fluent idOfUser(Long val);
 
-        SimpleBean setInteger(Integer integer);
-    }
-
-    @Test
-    void simpleJavaBean() {
-        val f = Mimic.Factory.factory(SimpleBean.class, supplier.get());
-        val instance = f.build(null);
-        instance.setInteger(1);
-        val m = instance.underlyingMap();
-        m.put("integer1", 3);
-        assertEquals(1, instance.getInteger());
-        assertEquals(m, instance.setInteger(2).underlyingMap());
-        assertEquals(new ArrayList<>(Collections.singletonList("integer")), instance.underlyingNaming());
-        assertEquals(SimpleBean.class.getSimpleName() + "@" + instance.hashCode() + "@" + m.toString(), instance.toString());
-        assertEquals(SimpleBean.class, instance.underlyingType());
-        assertNotEquals(f.build(null).setInteger(2), instance);
-        m.remove("integer1");
-        assertEquals(f.build(null).setInteger(2), instance);
-    }
-
-    @Mimic.Configuring.Mimicked(fluent = true)
-    interface SimpleValidate extends Mimic<SimpleValidate> {
-        Validating.Validator<Integer> validate = i -> i != null && i > 0;
-
-        Integer integer();
-
-        @Validating.Validate(value = SimpleValidate.class, message = "must positive")
-        SimpleValidate integer(int integer);
-    }
-
-    @Test
-    void simpleValidate() {
-        val f = Mimic.Factory.factory(SimpleValidate.class, supplier.get());
-        val instance = f.build(null);
-        instance.integer(1);
-        val m = instance.underlyingMap();
-        m.put("integer1", 3);
-        assertEquals(1, instance.integer());
-        assertEquals(m, instance.integer(2).underlyingMap());
-        assertEquals(new ArrayList<>(Collections.singletonList("integer")), instance.underlyingNaming());
-        assertEquals(SimpleValidate.class.getSimpleName() + "@" + instance.hashCode() + "@" + m.toString(), instance.toString());
-        assertEquals(SimpleValidate.class, instance.underlyingType());
-        assertNotEquals(f.build(null).integer(2), instance);
-        m.remove("integer1");
-        assertEquals(f.build(null).integer(2), instance);
-        assertThrows(IllegalArgumentException.class, () -> {
-            try {
-                instance.integer(-2);
-            } catch (Exception e) {
-                // e.printStackTrace();
-                throw e;
+        @Override
+        default void validate() throws IllegalStateException {
+            if (identity() > 10) {
+                throw new IllegalStateException("identity must less than 10");
             }
-        });
-        assertDoesNotThrow(instance::validate);
-    }
-
-    @Mimic.Configuring.Mimicked(fluent = true)
-    @Mimic.Converting.Converter(value = Integer.class, holder = SimpleConvValidate.class)
-    interface SimpleConvValidate extends Mimic<SimpleConvValidate> {
-        Validating.Validator<Integer> validate = i -> i != null && i > 0;
-        //        Converting.Deserialize<Integer> deserialize=i-> i == Converting.NULL ?null:Integer.parseInt(new String(i),16);
-//        Converting.Serialize<Integer> serialize=i->i==null?Converting.NULL:Integer.toHexString(i).getBytes(StandardCharsets.UTF_8);
-        Converting.Deserialize<Integer> deserialize = i -> i.equals(Converting.NULL) ? null : Integer.parseInt(i, 16);
-        Converting.Serialize<Integer> serialize = i -> i == null ? Converting.NULL : Integer.toHexString(i);
-
-        Integer integer();
-
-        @Validating.Validate(value = SimpleConvValidate.class, message = "must positive")
-        SimpleConvValidate integer(int integer);
-    }
-
-    @Test
-    void converterValidate() {
-        val f = Mimic.Factory.factory(SimpleConvValidate.class, supplier.get());
-        val instance = f.build(null);
-        instance.integer(1);
-        val m = instance.underlyingMap();
-        m.put("integer1", 3);
-        assertEquals(1, instance.integer());
-        assertEquals(m, instance.integer(2).underlyingMap());
-        assertEquals(new ArrayList<>(Collections.singletonList("integer")), instance.underlyingNaming());
-        assertEquals(SimpleConvValidate.class.getSimpleName() + "@" + instance.hashCode() + "@" + m.toString(), instance.toString());
-        assertEquals(SimpleConvValidate.class, instance.underlyingType());
-        assertNotEquals(f.build(null).integer(2), instance);
-        m.remove("integer1");
-        //TODO bytes dose not equal:
-        // option one: use String <- current choose
-        // option two: just not equal
-        assertEquals(f.build(null).integer(2), instance);
-        assertThrows(IllegalArgumentException.class, () -> {
-            try {
-                instance.integer(-2);
-            } catch (Exception e) {
-                // e.printStackTrace();
-                throw e;
-            }
-        });
-        assertDoesNotThrow(instance::validate);
-    }
-
-    /**
-     * execute benchmark via junit
-     * <p><b>result for simple </b>
-     * <pre>
-     * <b>one shot</b>
-     * Benchmark                              Mode  Cnt      Score      Error  Units
-     * MimicTest.benchmarkCreateClassInstant  avgt  200      3.721 ±    0.168  ns/op
-     * MimicTest.benchmarkMimicCreateInstant  avgt  200    314.420 ±    9.292  ns/op
-     * MimicTest.benchmarkMimicFactory        avgt  200  11115.976 ± 1112.852  ns/op
-     * MimicTest.benchmarkMimicReadValue      avgt  200     39.845 ±    0.863  ns/op
-     * MimicTest.benchmarkMimicSetValue       avgt  200     50.020 ±    2.159  ns/op
-     * MimicTest.benchmarkReadClassValue      avgt  200      2.950 ±    0.019  ns/op
-     * MimicTest.benchmarkSetClassValue       avgt  200      2.368 ±    0.014  ns/op
-     * <b>two shot</b>
-     * Benchmark                              Mode  Cnt     Score     Error  Units
-     * MimicTest.benchmarkCreateClassInstant  avgt  200     3.719 ±   0.188  ns/op
-     * MimicTest.benchmarkMimicCreateInstant  avgt  200   316.871 ±  10.075  ns/op
-     * MimicTest.benchmarkMimicFactory        avgt  200  9026.703 ± 432.104  ns/op
-     * MimicTest.benchmarkMimicReadValue      avgt  200    40.446 ±   1.420  ns/op
-     * MimicTest.benchmarkMimicSetValue       avgt  200    50.906 ±   3.140  ns/op
-     * MimicTest.benchmarkReadClassValue      avgt  200     3.079 ±   0.092  ns/op
-     * MimicTest.benchmarkSetClassValue       avgt  200     2.371 ±   0.014  ns/op
-     * <b>precompiled method name mapping</b>
-     * Benchmark                              Mode  Cnt      Score     Error  Units
-     * MimicTest.benchmarkCreateClassInstant  avgt  200      4.031 ±   0.851  ns/op
-     * MimicTest.benchmarkMimicCreateInstant  avgt  200    318.478 ±  13.759  ns/op
-     * MimicTest.benchmarkMimicFactory        avgt  200  11540.688 ± 657.444  ns/op
-     * MimicTest.benchmarkMimicReadValue      avgt  200     39.501 ±   1.409  ns/op
-     * MimicTest.benchmarkMimicSetValue       avgt  200     56.588 ±   3.415  ns/op
-     * MimicTest.benchmarkReadClassValue      avgt  200      3.130 ±   0.132  ns/op
-     * MimicTest.benchmarkSetClassValue       avgt  200      2.377 ±   0.020  ns/op
-     *
-     * Benchmark                              Mode  Cnt     Score     Error  Units
-     * MimicTest.benchmarkCreateClassInstant  avgt  200     3.748 ±   0.231  ns/op
-     * MimicTest.benchmarkMimicCreateInstant  avgt  200   318.543 ±   8.935  ns/op
-     * MimicTest.benchmarkMimicFactory        avgt  200  9838.604 ± 734.581  ns/op
-     * MimicTest.benchmarkMimicReadValue      avgt  200    39.978 ±   1.610  ns/op
-     * MimicTest.benchmarkMimicSetValue       avgt  200    48.529 ±   2.186  ns/op
-     * MimicTest.benchmarkReadClassValue      avgt  200     2.951 ±   0.022  ns/op
-     * MimicTest.benchmarkSetClassValue       avgt  200     2.411 ±   0.024  ns/op
-     *<b>precompiled string hashmap</b>
-     * Benchmark                              Mode  Cnt      Score     Error  Units
-     * MimicTest.benchmarkCreateClassInstant  avgt  200      3.814 ±   0.232  ns/op
-     * MimicTest.benchmarkMimicCreateInstant  avgt  200    320.937 ±  10.916  ns/op
-     * MimicTest.benchmarkMimicFactory        avgt  200  11750.703 ± 607.400  ns/op
-     * MimicTest.benchmarkMimicReadValue      avgt  200     43.417 ±   2.778  ns/op
-     * MimicTest.benchmarkMimicSetValue       avgt  200     49.799 ±   2.886  ns/op
-     * MimicTest.benchmarkReadClassValue      avgt  200      2.967 ±   0.042  ns/op
-     * MimicTest.benchmarkSetClassValue       avgt  200      2.520 ±   0.096  ns/op
-     * </pre>
-     */
-    @Test
-    void benchmark() throws RunnerException {
-        new Runner(new OptionsBuilder()
-            .include(this.getClass().getName() + ".benchmark*")
-
-            .mode(Mode.AverageTime)
-            .timeUnit(TimeUnit.NANOSECONDS)
-
-            .warmupTime(TimeValue.seconds(1))
-            .warmupIterations(2)
-
-            .measurementTime(TimeValue.microseconds(1))
-            .measurementIterations(100)
-            .operationsPerInvocation(100)
-            .threads(2)
-            .forks(2)
-
-            .shouldFailOnError(true)
-            .shouldDoGC(false)
-
-            // .jvmArgs("-XX:+UnlockDiagnosticVMOptions", "-XX:+PrintInlining")
-            //.addProfiler(JavaFlightRecorderProfiler.class)
-
-            .build()).run();
-    }
-
-    @State(Scope.Thread)
-    public static class BenchmarkState {
-        Function<Class<?>, Mimic.Factory<?>> supplier;
-        Mimic.Factory<Simple> factory;
-        Simple instance;
-        SimpleImpl classInstance;
-
-        @Setup(Level.Trial)
-        public void
-        initialize() {
-            //noinspection unchecked
-            supplier = c -> Mimic.Factory.factory((Class) c, supplier);
-            factory = (Mimic.Factory<Simple>) supplier.apply(Simple.class);
-            instance = factory.build(null);
-            classInstance = new SimpleImpl();
         }
     }
 
-    static class SimpleImpl implements Simple {
-        private int i;
+    @Mimic.Dao.Entity
+    public interface Flue extends Fluent {
+
+        @AsString
+        @Override
+        Long identity();
+
+        BigDecimal user();
+
+        Flue user(BigDecimal val);
 
         @Override
-        public Integer integer() {
+        default void validate() throws IllegalStateException {
+            if (user().compareTo(BigDecimal.TEN) < 0) {
+                throw new IllegalStateException("user must bigger than 10");
+            }
+            Fluent.super.validate();
+        }
+    }
+
+    public interface FluentDao extends Mimic.Dao<Fluent> {
+        static DataType<Long> identity = SQLDataType.BIGINT.identity(true);
+
+        @As(typeHolder = FluentDao.class, typeProperty = "identity")
+        Field<Long> id();
+
+        @As(typeHolder = SQLDataType.class, typeProperty = "BIGINT")
+        Field<Long> identity();
+
+        @As(typeHolder = SQLDataType.class, typeProperty = "VARCHAR")
+        Field<String> idOfUser();
+
+        @Override
+        default List<Field<?>> allFields() {
+            return Arrays.asList(id(), identity(), idOfUser());
+        }
+
+        default int insert(Fluent i) {
+            return ctx().insertInto(table()).set(toDatabase(i.underlyingMap())).execute();
+        }
+
+        default Fluent fetchById(long id) {
+            return instance(ctx().selectFrom(table()).where(id().eq(id)).fetchOne().intoMap());
+        }
+
+        default Fluent update(Fluent i) {
+            if (i.id() == 0) {
+                throw new IllegalStateException("can't update entity have no id");
+            }
+            val und = i.underlyingMap();
+            val changes = i.underlyingChangedProperties();
+            if (changes == null || changes.isEmpty()) throw new IllegalStateException("nothing to update entity");
+            val m = new HashMap<String, Object>();
+            for (String property : changes) {
+                m.put(property, und.get(property));
+            }
+            if (ctx().update(table()).set(toDatabase(m)).where(id().eq(i.id())).execute() < 1) {
+                throw new IllegalStateException("update failure");
+            }
             return i;
         }
 
-        @Override
-        public Simple integer(int integer) {
-            i = integer;
-            return this;
+        default void deleteAll() {
+            ctx().delete(table()).execute();
         }
     }
 
-    /**
-     * annotations for directly invoked with IDE plugins
-     */
-    @Warmup(iterations = 2, batchSize = 3, time = 1, timeUnit = TimeUnit.SECONDS)
-    @OutputTimeUnit(TimeUnit.MICROSECONDS)
-    @Fork(value = 2)
-    @Measurement(iterations = 20, time = 300, timeUnit = TimeUnit.MILLISECONDS)
-    @OperationsPerInvocation(100)
-    @Benchmark
-    public void benchmarkMimicFactory(BenchmarkState state, Blackhole bh) {
-        for (int i = 0; i < 100; i++)
-            bh.consume(Mimic.Factory.factory(SimpleConvValidate.class, state.supplier));
+    public interface FlueDao extends Mimic.Dao<Flue> {
+        Field<BigDecimal> user();
+
+        @As(typeHolder = FluentDao.class, typeProperty = "identity")
+        Field<Long> id();
+
+        @As(typeHolder = SQLDataType.class, typeProperty = "VARCHAR")
+        Field<String> identity();
+
+        @As(typeHolder = SQLDataType.class, typeProperty = "VARCHAR")
+        Field<String> idOfUser();
+
+        @Override
+        default List<Field<?>> allFields() {
+            return Arrays.asList(id(), identity(), idOfUser(), user());
+        }
+
+        default int insert(Flue i) {
+            return ctx().insertInto(table()).set(toDatabase(i.underlyingMap())).execute();
+        }
+
+        default Flue fetchById(long id) {
+            return instance(ctx().selectFrom(table()).where(id().eq(id)).fetchOne().intoMap());
+        }
+
+        default void deleteAll() {
+            ctx().delete(table()).execute();
+        }
     }
 
-    @Warmup(iterations = 2, batchSize = 3, time = 1, timeUnit = TimeUnit.SECONDS)
-    @OutputTimeUnit(TimeUnit.MICROSECONDS)
-    @Fork(value = 2)
-    @Measurement(iterations = 20, time = 300, timeUnit = TimeUnit.MILLISECONDS)
-    @OperationsPerInvocation(100)
-    @Benchmark
-    public void benchmarkMimicCreateInstant(BenchmarkState state, Blackhole bh) {
-        for (int i = 0; i < 100; i++)
-            bh.consume(state.factory.build(null));
-    }
-
-    @Warmup(iterations = 2, batchSize = 3, time = 1, timeUnit = TimeUnit.SECONDS)
-    @OutputTimeUnit(TimeUnit.MICROSECONDS)
-    @Fork(value = 2)
-    @Measurement(iterations = 20, time = 300, timeUnit = TimeUnit.MILLISECONDS)
-    @OperationsPerInvocation(100)
-    @Benchmark
-    public void benchmarkCreateClassInstant(BenchmarkState state, Blackhole bh) {
-        for (int i = 0; i < 100; i++)
-            bh.consume(new SimpleImpl());
-    }
-
-    @Warmup(iterations = 2, batchSize = 3, time = 1, timeUnit = TimeUnit.SECONDS)
-    @OutputTimeUnit(TimeUnit.MICROSECONDS)
-    @Fork(value = 2)
-    @Measurement(iterations = 20, time = 300, timeUnit = TimeUnit.MILLISECONDS)
-    @OperationsPerInvocation(100)
-    @Benchmark
-    public void benchmarkMimicSetValue(BenchmarkState state, Blackhole bh) {
-        for (int i = 0; i < 100; i++)
-            bh.consume(state.instance.integer(i));
-    }
-
-    @Warmup(iterations = 2, batchSize = 3, time = 1, timeUnit = TimeUnit.SECONDS)
-    @OutputTimeUnit(TimeUnit.MICROSECONDS)
-    @Fork(value = 2)
-    @Measurement(iterations = 20, time = 300, timeUnit = TimeUnit.MILLISECONDS)
-    @OperationsPerInvocation(100)
-    @Benchmark
-    public void benchmarkSetClassValue(BenchmarkState state, Blackhole bh) {
-        for (int i = 0; i < 100; i++)
-            bh.consume(state.classInstance.integer(i));
-    }
-
-    @Warmup(iterations = 2, batchSize = 3, time = 1, timeUnit = TimeUnit.SECONDS)
-    @OutputTimeUnit(TimeUnit.MICROSECONDS)
-    @Fork(value = 2)
-    @Measurement(iterations = 20, time = 300, timeUnit = TimeUnit.MILLISECONDS)
-    @OperationsPerInvocation(100)
-    @Benchmark
-    public void benchmarkMimicReadValue(BenchmarkState state, Blackhole bh) {
-        for (int i = 0; i < 100; i++)
-            bh.consume(state.instance.integer());
-    }
-
-    @Warmup(iterations = 2, batchSize = 3, time = 1, timeUnit = TimeUnit.SECONDS)
-    @OutputTimeUnit(TimeUnit.MICROSECONDS)
-    @Fork(value = 2)
-    @Measurement(iterations = 20, time = 300, timeUnit = TimeUnit.MILLISECONDS)
-    @OperationsPerInvocation(100)
-    @Benchmark
-    public void benchmarkReadClassValue(BenchmarkState state, Blackhole bh) {
-        for (int i = 0; i < 100; i++)
-            bh.consume(state.classInstance.integer());
-    }
-
-    @Mimic.Configuring.Mimicked(fluent = true)
-    @Mimic.Converting.Converter(value = Integer.class, holder = SimpleConvValidate.class)
-    interface SimpleConvertedValidated<T extends SimpleConvertedValidated<T>> extends Mimic<T> {
-        Integer integer();
-
-        @Validating.Validate(value = SimpleValidate.class, message = "must positive")
-        T integer(int integer);
-    }
-
-    interface SimpleValidateInherit extends SimpleConvertedValidated<SimpleValidateInherit> {
-
-    }
-
-    @Test
-    void testInherit() {
-        val f = Mimic.Factory.factory(SimpleValidateInherit.class, supplier.get());
-        val instance = f.build(null);
-        instance.integer(1);
-        val m = instance.underlyingMap();
-        m.put("integer", 3);
-        assertEquals(1, instance.integer());
-        assertEquals(m, instance.integer(2).underlyingMap());
-        assertEquals(new ArrayList<>(Collections.singletonList("integer")), instance.underlyingNaming());
-        assertEquals(SimpleValidateInherit.class.getSimpleName() + "@" + instance.hashCode() + "@" + m.toString(), instance.toString());
-        assertEquals(SimpleValidateInherit.class, instance.underlyingType());
-        assertNotEquals(f.build(null).integer(2), instance);
-        m.remove(2);
-        assertEquals(f.build(null).integer(2), instance);
-        assertThrows(IllegalArgumentException.class, () -> {
-            try {
-                instance.integer(-2);
-            } catch (Exception e) {
-                // e.printStackTrace();
-                throw e;
+    static class MimicTestWithOutDao {
+        @Test
+        void proxyMimic() {
+            {
+                val i = Mimic.newInstance(Fluent.class, null);
+                i.id(12L);
+                System.out.println(i.underlyingMap());
+                assertEquals(12L, i.id());
+                i.identity(11L);
+                System.out.println(i.underlyingMap());
+                assertEquals(12L, i.id());
+                assertThrows(IllegalStateException.class, i::validate);
+                assertNull(i.underlyingChangedProperties());
             }
-        });
-        assertDoesNotThrow(instance::validate);
+            {
+                val i = Mimic.newInstance(Flue.class, null);
+                i.id(12L);
+                System.out.println(i.underlyingMap());
+                assertEquals(12L, i.id());
+                assertThrows(IllegalStateException.class, () -> i.identity(null));
+                i.identity(11L);
+                i.user(BigDecimal.TEN);
+                assertThrows(IllegalStateException.class, i::validate);
+                i.identity(10L);
+                i.user(BigDecimal.valueOf(9));
+                System.out.println(i.underlyingMap());
+                assertEquals(12L, i.id());
+                assertEquals(10L, i.identity());
+                assertEquals(BigDecimal.valueOf(9), i.user());
+                assertThrows(IllegalStateException.class, i::validate);
+                assertNull(i.underlyingChangedProperties());
+            }
+        }
 
+        @Test
+        void asmEagerMimic() {
+            Mimic.ByteASM.enable(false);
+            {
+                val i = Mimic.newInstance(Fluent.class, null);
+                i.id(12L);
+                System.out.println(i.underlyingMap());
+                assertEquals(12L, i.id());
+                i.identity(11L);
+                System.out.println(i.underlyingMap());
+                assertEquals(12L, i.id());
+                assertThrows(IllegalStateException.class, i::validate);
+                assertNull(i.underlyingChangedProperties());
+            }
+            {
+                val i = Mimic.newInstance(Flue.class, null);
+                i.id(12L);
+                System.out.println(i.underlyingMap());
+                assertEquals(12L, i.id());
+                assertThrows(IllegalStateException.class, () -> i.identity(null));
+                i.identity(11L);
+                i.user(BigDecimal.TEN);
+                assertThrows(IllegalStateException.class, i::validate);
+                i.identity(10L);
+                i.user(BigDecimal.valueOf(9));
+                System.out.println(i.underlyingMap() + ":" + i);
+                assertEquals(12L, i.id());
+                assertEquals(10L, i.identity());
+                assertEquals(BigDecimal.valueOf(9), i.user());
+                assertThrows(IllegalStateException.class, i::validate);
+                assertNull(i.underlyingChangedProperties());
+            }
+        }
+
+        @Test
+        void asmLazyMimic() {
+            Mimic.ByteASM.enable(true);
+            {
+                val i = Mimic.newInstance(Fluent.class, null);
+                i.id(12L);
+                System.out.println(i.underlyingMap());
+                assertEquals(12L, i.id());
+                i.identity(11L);
+                System.out.println(i.underlyingMap());
+                assertEquals(12L, i.id());
+                assertThrows(IllegalStateException.class, i::validate);
+                assertNull(i.underlyingChangedProperties());
+            }
+            {
+                val i = Mimic.newInstance(Flue.class, null);
+                i.id(12L);
+                System.out.println(i.underlyingMap());
+                assertEquals(12L, i.id());
+                assertThrows(IllegalStateException.class, () -> i.identity(null));
+                i.identity(11L);
+                i.user(BigDecimal.TEN);
+                assertThrows(IllegalStateException.class, i::validate);
+                i.identity(10L);
+                i.user(BigDecimal.valueOf(9));
+                System.out.println(i.underlyingMap() + ":" + i);
+                assertEquals(12L, i.id());
+                assertEquals(10L, i.identity());
+                assertEquals(BigDecimal.valueOf(9), i.user());
+                assertThrows(IllegalStateException.class, i::validate);
+                assertNull(i.underlyingChangedProperties());
+            }
+        }
     }
+
+    static class MimicTestWithDao {
+        @Test
+        void proxyDao() {
+            val cfg = new DefaultConfiguration();
+            cfg.setSQLDialect(SQLDialect.H2);
+            val hc = new HikariConfig();
+            hc.setJdbcUrl("jdbc:h2:mem:test");
+            cfg.setDataSource(new HikariDataSource(hc));
+            {
+                val dao = Mimic.Dao.newInstance(Fluent.class, FluentDao.class, cfg);
+                System.out.println(dao.DDL());
+                val i = Mimic.newInstance(Fluent.class, null);
+                i.id(12L);
+                i.identity(12L);
+                i.idOfUser(24L);
+                assertEquals(Arrays.asList("id", "identity", "idOfUser"), i.underlyingChangedProperties());
+                dao.insert(i);
+                val i2 = dao.fetchById(12L);
+                System.out.println(i2);
+                i2.identity(8L);
+                assertEquals(Collections.singletonList("identity"), i2.underlyingChangedProperties());
+                System.out.println(dao.update(i2));
+                val r = dao.fetchById(12L);
+                assertEquals(12L, r.id());
+                assertEquals(8L, r.identity());
+                assertEquals(24L, r.idOfUser());
+            }
+            {
+                val dao = Mimic.Dao.newInstance(Flue.class, FlueDao.class, cfg);
+                System.out.println(dao.DDL());
+                val i = Mimic.newInstance(Flue.class, null);
+                i.id(12L);
+                i.identity(12L);
+                i.idOfUser(24L);
+                dao.insert(i);
+                val r = dao.fetchById(12L);
+                assertEquals(12L, r.id());
+                assertEquals(12L, r.identity());
+                assertEquals(24L, r.idOfUser());
+            }
+        }
+
+        @Test
+        void asmLazyProxyDao() {
+            Mimic.ByteASM.enable(true);
+            val cfg = new DefaultConfiguration();
+            cfg.setSQLDialect(SQLDialect.H2);
+            val hc = new HikariConfig();
+            hc.setJdbcUrl("jdbc:h2:mem:test");
+            cfg.setDataSource(new HikariDataSource(hc));
+            {
+                val dao = Mimic.Dao.newInstance(Fluent.class, FluentDao.class, cfg);
+                System.out.println(dao.DDL());
+                dao.deleteAll();
+                val i = Mimic.newInstance(Fluent.class, null);
+                i.id(12L);
+                i.identity(12L);
+                i.idOfUser(24L);
+                assertEquals(Arrays.asList("id", "identity", "idOfUser"), i.underlyingChangedProperties());
+                dao.insert(i);
+                val i2 = dao.fetchById(12L);
+                System.out.println(i2);
+                i2.identity(8L);
+                assertEquals(Collections.singletonList("identity"), i2.underlyingChangedProperties());
+                System.out.println(dao.update(i2));
+                val r = dao.fetchById(12L);
+                assertEquals(12L, r.id());
+                assertEquals(8L, r.identity());
+                assertEquals(24L, r.idOfUser());
+            }
+            {
+                val dao = Mimic.Dao.newInstance(Flue.class, FlueDao.class, cfg);
+                System.out.println(dao.DDL());
+                dao.deleteAll();
+                val i = Mimic.newInstance(Flue.class, null);
+                i.id(12L);
+                i.identity(12L);
+                i.idOfUser(24L);
+                dao.insert(i);
+                val r = dao.fetchById(12L);
+                assertEquals(12L, r.id());
+                assertEquals(12L, r.identity());
+                assertEquals(24L, r.idOfUser());
+            }
+        }
+
+        @Test
+        void asmEagerProxyDao() {
+            Mimic.ByteASM.enable(false);
+            val cfg = new DefaultConfiguration();
+            cfg.setSQLDialect(SQLDialect.H2);
+            val hc = new HikariConfig();
+            hc.setJdbcUrl("jdbc:h2:mem:test");
+            cfg.setDataSource(new HikariDataSource(hc));
+            {
+                val dao = Mimic.Dao.newInstance(Fluent.class, FluentDao.class, cfg);
+                System.out.println(dao.DDL());
+                dao.deleteAll();
+                val i = Mimic.newInstance(Fluent.class, null);
+                i.id(12L);
+                i.identity(12L);
+                i.idOfUser(24L);
+                assertEquals(Arrays.asList("id", "identity", "idOfUser"), i.underlyingChangedProperties());
+                dao.insert(i);
+                val i2 = dao.fetchById(12L);
+                System.out.println(i2);
+                i2.identity(8L);
+                assertEquals(Collections.singletonList("identity"), i2.underlyingChangedProperties());
+                System.out.println(dao.update(i2));
+                val r = dao.fetchById(12L);
+                assertEquals(12L, r.id());
+                assertEquals(8L, r.identity());
+                assertEquals(24L, r.idOfUser());
+            }
+            {
+                val dao = Mimic.Dao.newInstance(Flue.class, FlueDao.class, cfg);
+                System.out.println(dao.DDL());
+                dao.deleteAll();
+                val i = Mimic.newInstance(Flue.class, null);
+                i.id(12L);
+                i.identity(12L);
+                i.idOfUser(24L);
+                dao.insert(i);
+                val r = dao.fetchById(12L);
+                assertEquals(12L, r.id());
+                assertEquals(12L, r.identity());
+                assertEquals(24L, r.idOfUser());
+            }
+        }
+
+        @Test
+        void asmLazyAsmDao() {
+            Mimic.ByteASM.enable(true);
+            Mimic.Dao.ByteASM.enable();
+            val cfg = new DefaultConfiguration();
+            cfg.setSQLDialect(SQLDialect.H2);
+            val hc = new HikariConfig();
+            hc.setJdbcUrl("jdbc:h2:mem:test");
+            cfg.setDataSource(new HikariDataSource(hc));
+            {
+                val dao = Mimic.Dao.newInstance(Fluent.class, FluentDao.class, cfg);
+                System.out.println(dao.DDL());
+                dao.deleteAll();
+                val i = Mimic.newInstance(Fluent.class, null);
+                i.id(12L);
+                i.identity(12L);
+                i.idOfUser(24L);
+                assertEquals(Arrays.asList("id", "identity", "idOfUser"), i.underlyingChangedProperties());
+                dao.insert(i);
+                val i2 = dao.fetchById(12L);
+                System.out.println(i2);
+                i2.identity(8L);
+                assertEquals(Collections.singletonList("identity"), i2.underlyingChangedProperties());
+                System.out.println(dao.update(i2));
+                val r = dao.fetchById(12L);
+                assertEquals(12L, r.id());
+                assertEquals(8L, r.identity());
+                assertEquals(24L, r.idOfUser());
+            }
+            {
+                val dao = Mimic.Dao.newInstance(Flue.class, FlueDao.class, cfg);
+                System.out.println(dao.DDL());
+                dao.deleteAll();
+                val i = Mimic.newInstance(Flue.class, null);
+                i.id(12L);
+                i.identity(12L);
+                i.idOfUser(24L);
+                dao.insert(i);
+                val r = dao.fetchById(12L);
+                assertEquals(12L, r.id());
+                assertEquals(12L, r.identity());
+                assertEquals(24L, r.idOfUser());
+            }
+        }
+    }
+
+
 }
