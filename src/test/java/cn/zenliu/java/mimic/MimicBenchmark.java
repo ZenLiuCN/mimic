@@ -5,6 +5,8 @@ import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.Test;
 import org.openjdk.jmh.annotations.*;
 import org.openjdk.jmh.infra.Blackhole;
+import org.openjdk.jmh.profile.JavaFlightRecorderProfiler;
+import org.openjdk.jmh.profile.WinPerfAsmProfiler;
 import org.openjdk.jmh.runner.Runner;
 import org.openjdk.jmh.runner.options.OptionsBuilder;
 import org.openjdk.jmh.runner.options.TimeValue;
@@ -38,8 +40,8 @@ public class MimicBenchmark {
                 .forks(5)
                 .shouldFailOnError(true)
                 .shouldDoGC(true)
-                //.jvmArgs("-XX:+UnlockDiagnosticVMOptions", "-XX:+PrintInlining")
-                //.addProfiler(WinPerfAsmProfiler.class)
+               /* .jvmArgs("-XX:+UnlockCommercialFeatures")
+                .addProfiler(JavaFlightRecorderProfiler.class)*/
                 //endregion
                 ;
         new Runner(opt.build()).run();
@@ -47,16 +49,13 @@ public class MimicBenchmark {
 
     /**
      * <pre>
-     * <b>Dynamic Proxy</b>
-     *     Benchmark                            Mode  Cnt     Score      Error  Units
-     * MimicBenchmark.proxyMimicBenchBuild  avgt  100  7745.875 ± 2441.455  ns/op
-     * MimicBenchmark.proxyMimicBenchGet    avgt  100   798.277 ±   78.877  ns/op
-     * MimicBenchmark.proxyMimicBenchSet    avgt  100   980.545 ±   87.045  ns/op
-     * <b>ByteBuddy ASM</b>
-     *     Benchmark                            Mode  Cnt     Score      Error  Units
-     * MimicBenchmark.proxyMimicBenchBuild  avgt  100  7108.681 ± 2308.896  ns/op
-     * MimicBenchmark.proxyMimicBenchGet    avgt  100   752.182 ±  125.494  ns/op
-     * MimicBenchmark.proxyMimicBenchSet    avgt  100  2190.566 ±  297.146  ns/op
+     * Benchmark                            Mode  Cnt     Score      Error  Units
+     * MimicBenchmark.mimicBenchAsmBuild    avgt  100  1724.891 ±  799.236  ns/op
+     * MimicBenchmark.mimicBenchAsmGet      avgt  100   736.983 ±  112.711  ns/op
+     * MimicBenchmark.mimicBenchAsmSet      avgt  100   994.860 ±  111.333  ns/op
+     * MimicBenchmark.mimicBenchProxyBuild  avgt  100  6686.670 ± 2496.421  ns/op
+     * MimicBenchmark.mimicBenchProxyGet    avgt  100   647.080 ±   79.853  ns/op
+     * MimicBenchmark.mimicBenchProxySet    avgt  100   910.694 ±  101.106  ns/op
      * </pre>
      */
     @Test
