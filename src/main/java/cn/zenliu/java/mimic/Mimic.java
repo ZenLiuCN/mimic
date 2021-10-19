@@ -1804,7 +1804,8 @@ public interface Mimic {
             @SuppressWarnings("unchecked")
             static <T extends Mimic, D extends Dao<T>> D createRepo(Class<T> type, Class<D> repo, Configuration config) {
                 setConfiguration(config);
-                return (D) factory(tuple((Class<Mimic>) type, (Class<Dao>) repo))
+                //noinspection RedundantCast
+                return (D) factory(tuple((Class<Mimic>) type, (Class<Dao>) (Class) repo))
                     .build(config == null ? lastConfig.get() : config);
             }
 
