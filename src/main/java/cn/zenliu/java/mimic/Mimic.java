@@ -328,17 +328,13 @@ public interface Mimic {
             if (accessible == null) {
                 return null;
             }
-
             if (accessible instanceof Member) {
                 Member member = (Member) accessible;
-
                 if (Modifier.isPublic(member.getModifiers()) &&
                     Modifier.isPublic(member.getDeclaringClass().getModifiers())) {
                     return accessible;
                 }
             }
-
-            // [jOOQ #3392] The accessible flag is set to false by default, also for public members.
             if (!accessible.isAccessible())
                 accessible.setAccessible(true);
             return accessible;
@@ -576,9 +572,7 @@ public interface Mimic {
 
         @SneakyThrows
         static Object sneakyField(Class cls, String field) {
-            val f = cls.getField(field);
-            f.setAccessible(true);
-            return f.get(null);
+            return accessible(cls.getField(field)).get(null);
         }
 
         //(asString)=>(FromString,ToString)
@@ -586,30 +580,13 @@ public interface Mimic {
         @SneakyThrows
         static Tuple2<Function<Object, Object>, Function<Object, Object>> extract(AsString an) {
             val holder = an.value();
-            val from = holder.getField(an.fromProperty());
-            from.setAccessible(true);
-            val frm = (Function<Object, Object>) from.get(null);
-            val to = holder.getField(an.toProperty());
-            to.setAccessible(true);
-            val tr = (Function<Object, Object>) to.get(null);
+            val frm = (Function<Object, Object>) accessible(holder.getField(an.fromProperty())).get(null);
+            val tr = (Function<Object, Object>) accessible(holder.getField(an.toProperty())).get(null);
             return tuple(frm, tr);
         }
 
         //endregion
         //region Factory
-        final static Factory nullFactory = new Factory() {
-            @Override
-            public PropertiesInfo properties() {
-                return null;
-            }
-
-            @Override
-            public Mimic build(Map data) {
-                return null;
-            }
-
-        };
-
 
         interface Factory {
             List<String> defaultMethodName = Arrays.asList("underlyingMap", "underlyingChangedProperties");
@@ -802,7 +779,7 @@ public interface Mimic {
 
             static Factory build(Class<? extends Mimic> cls) {
                 if (!Mimic.class.isAssignableFrom(cls)) {
-                    return nullFactory;
+                    throw new IllegalStateException(cls + " is not a mimic!");
                 }
                 val info = Factory.infoCache.get(cls);
                 if (info == null) throw new IllegalStateException("could not generate mimic info from " + cls);
@@ -1257,7 +1234,7 @@ public interface Mimic {
 
             static Factory build(Class<? extends Mimic> cls) {
                 if (!Mimic.class.isAssignableFrom(cls)) {
-                    return nullFactory;
+                    throw new IllegalStateException(cls + " is not a Mimic");
                 }
                 final Tuple2<AsmCreator, PropertiesInfo> t = buildInfo(cls);
                 return new AsmFactory(t.v2, t.v1, cls);
