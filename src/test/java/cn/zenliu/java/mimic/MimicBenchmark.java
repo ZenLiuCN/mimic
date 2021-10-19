@@ -35,7 +35,7 @@ public class MimicBenchmark {
                 .measurementTime(TimeValue.milliseconds(1))
                 .measurementIterations(measurementIterations)
                 .threads(5)
-                .forks(2)
+                .forks(5)
                 .shouldFailOnError(true)
                 .shouldDoGC(true)
                 //.jvmArgs("-XX:+UnlockDiagnosticVMOptions", "-XX:+PrintInlining")
@@ -47,32 +47,21 @@ public class MimicBenchmark {
 
     /**
      * <pre>
-     *
-     * <b>Dynamic Proxy Mode (default mode)</b>
-     * Benchmark                            Mode  Cnt      Score       Error  Units
-     * MimicBenchmark.proxyMimicBenchBuild  avgt  100  11371.355 ± 22272.873  ns/op
-     * MimicBenchmark.proxyMimicBenchGet    avgt  100    108.670 ±   162.241  ns/op
-     * MimicBenchmark.proxyMimicBenchSet    avgt  100    229.266 ±    90.482  ns/op
-     * <b>ASM Lazy Mode</b>
-     * Benchmark                            Mode  Cnt     Score      Error  Units
-     * MimicBenchmark.proxyMimicBenchBuild  avgt  100  3412.902 ± 7204.948  ns/op
-     * MimicBenchmark.proxyMimicBenchGet    avgt  100    42.158 ±   11.405  ns/op
-     * MimicBenchmark.proxyMimicBenchSet    avgt  100  1727.545 ± 5428.073  ns/op
-     * <b>ASM Eager Mode</b>
-     * Benchmark                            Mode  Cnt     Score      Error  Units
-     * MimicBenchmark.proxyMimicBenchBuild  avgt  100  1973.709 ± 2154.795  ns/op
-     * MimicBenchmark.proxyMimicBenchGet    avgt  100    19.943 ±    8.123  ns/op
-     * MimicBenchmark.proxyMimicBenchSet    avgt  100   115.697 ±   27.901  ns/op
-     * <b>ASM Advice Lazy Mode</b>
-     * Benchmark                            Mode  Cnt     Score       Error  Units
-     * MimicBenchmark.proxyMimicBenchBuild  avgt  100  1763.303 ±  3117.286  ns/op
-     * MimicBenchmark.proxyMimicBenchGet    avgt  100  9174.930 ± 28940.780  ns/op
-     * MimicBenchmark.proxyMimicBenchSet    avgt  100   170.031 ±    86.661  ns/op
+     * <b>Dynamic Proxy</b>
+     *     Benchmark                            Mode  Cnt     Score      Error  Units
+     * MimicBenchmark.proxyMimicBenchBuild  avgt  100  7745.875 ± 2441.455  ns/op
+     * MimicBenchmark.proxyMimicBenchGet    avgt  100   798.277 ±   78.877  ns/op
+     * MimicBenchmark.proxyMimicBenchSet    avgt  100   980.545 ±   87.045  ns/op
+     * <b>ByteBuddy ASM</b>
+     *     Benchmark                            Mode  Cnt     Score      Error  Units
+     * MimicBenchmark.proxyMimicBenchBuild  avgt  100  7108.681 ± 2308.896  ns/op
+     * MimicBenchmark.proxyMimicBenchGet    avgt  100   752.182 ±  125.494  ns/op
+     * MimicBenchmark.proxyMimicBenchSet    avgt  100  2190.566 ±  297.146  ns/op
      * </pre>
      */
     @Test
     void proxyMimic() throws Exception {
-        benchRun("proxyMimicBench*", true);
+        benchRun("mimicBench*", true);
     }
 
     @State(Scope.Thread)
@@ -87,30 +76,55 @@ public class MimicBenchmark {
             data.put("identity", "10");
             data.put("idOfUser", "10");
             data.put("user", BigDecimal.valueOf(10));
-
-            Mimic.ByteASM.enable(true);
             instance = Mimic.newInstance(MimicTest.Flue.class, data);
         }
     }
 
+    @State(Scope.Thread)
+    public static class BenchmarkAsmState {
+        MimicTest.Flue instance;
+        Map<String, Object> data;
+
+        @Setup(Level.Trial)
+        public void initialize() {
+            data = new HashMap<>();
+            data.put("id", 10L);
+            data.put("identity", "10");
+            data.put("idOfUser", "10");
+            data.put("user", BigDecimal.valueOf(10));
+
+            Mimic.ByteASM.enable();
+            instance = Mimic.newInstance(MimicTest.Flue.class, data);
+        }
+    }
 
     @Benchmark
-    public void proxyMimicBenchBuild(Blackhole bh) {
+    public void mimicBenchProxyBuild(BenchmarkState st, Blackhole bh) {
         bh.consume(Mimic.newInstance(MimicTest.Flue.class, null));
     }
 
-    /**
-     * <pre>
-     *
-     * </pre>
-     */
     @Benchmark
-    public void proxyMimicBenchSet(BenchmarkState st, Blackhole bh) {
-        st.instance.id(100L);
+    public void mimicBenchProxySet(BenchmarkState st, Blackhole bh) {
+        bh.consume(st.instance.identity(100L));
     }
 
     @Benchmark
-    public void proxyMimicBenchGet(BenchmarkState st, Blackhole bh) {
+    public void mimicBenchProxyGet(BenchmarkState st, Blackhole bh) {
+        bh.consume(st.instance.id());
+    }
+
+    @Benchmark
+    public void mimicBenchAsmBuild(BenchmarkAsmState st, Blackhole bh) {
+        bh.consume(Mimic.newInstance(MimicTest.Flue.class, null));
+    }
+
+    @Benchmark
+    public void mimicBenchAsmSet(BenchmarkAsmState st, Blackhole bh) {
+        bh.consume(st.instance.identity(100L));
+    }
+
+    @Benchmark
+    public void mimicBenchAsmGet(BenchmarkAsmState st, Blackhole bh) {
         bh.consume(st.instance.id());
     }
 

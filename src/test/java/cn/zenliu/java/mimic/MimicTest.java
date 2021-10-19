@@ -1,4 +1,5 @@
 package cn.zenliu.java.mimic;
+
 import com.zaxxer.hikari.HikariConfig;
 import com.zaxxer.hikari.HikariDataSource;
 import lombok.val;
@@ -7,11 +8,11 @@ import org.jooq.Field;
 import org.jooq.SQLDialect;
 import org.jooq.impl.DefaultConfiguration;
 import org.jooq.impl.SQLDataType;
+import org.jooq.lambda.Seq;
 import org.junit.jupiter.api.Test;
 
 import java.math.BigDecimal;
 import java.util.Arrays;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 
@@ -151,7 +152,7 @@ class MimicTest {
                 System.out.println(i.underlyingMap());
                 assertEquals(12L, i.id());
                 assertThrows(IllegalStateException.class, i::validate);
-                assertNull(i.underlyingChangedProperties());
+                assertNotNull(i.underlyingChangedProperties());
             }
             {
                 val i = Mimic.newInstance(Flue.class, null);
@@ -169,13 +170,15 @@ class MimicTest {
                 assertEquals(10L, i.identity());
                 assertEquals(BigDecimal.valueOf(9), i.user());
                 assertThrows(IllegalStateException.class, i::validate);
-                assertNull(i.underlyingChangedProperties());
+                assertNotNull(i.underlyingChangedProperties());
+                System.out.println(i);
             }
         }
 
+
         @Test
-        void asmEagerMimic() {
-            Mimic.ByteASM.enable(false);
+        void asmMimic() {
+            Mimic.ByteASM.enable();
             {
                 val i = Mimic.newInstance(Fluent.class, null);
                 i.id(12L);
@@ -185,7 +188,7 @@ class MimicTest {
                 System.out.println(i.underlyingMap());
                 assertEquals(12L, i.id());
                 assertThrows(IllegalStateException.class, i::validate);
-                assertNull(i.underlyingChangedProperties());
+                assertNotNull(i.underlyingChangedProperties());
             }
             {
                 val i = Mimic.newInstance(Flue.class, null);
@@ -203,41 +206,7 @@ class MimicTest {
                 assertEquals(10L, i.identity());
                 assertEquals(BigDecimal.valueOf(9), i.user());
                 assertThrows(IllegalStateException.class, i::validate);
-                assertNull(i.underlyingChangedProperties());
-            }
-        }
-
-        @Test
-        void asmLazyMimic() {
-            Mimic.ByteASM.enable(true);
-            {
-                val i = Mimic.newInstance(Fluent.class, null);
-                i.id(12L);
-                System.out.println(i.underlyingMap());
-                assertEquals(12L, i.id());
-                i.identity(11L);
-                System.out.println(i.underlyingMap());
-                assertEquals(12L, i.id());
-                assertThrows(IllegalStateException.class, i::validate);
-                assertNull(i.underlyingChangedProperties());
-            }
-            {
-                val i = Mimic.newInstance(Flue.class, null);
-                i.id(12L);
-                System.out.println(i.underlyingMap());
-                assertEquals(12L, i.id());
-                assertThrows(IllegalStateException.class, () -> i.identity(null));
-                i.identity(11L);
-                i.user(BigDecimal.TEN);
-                assertThrows(IllegalStateException.class, i::validate);
-                i.identity(10L);
-                i.user(BigDecimal.valueOf(9));
-                System.out.println(i.underlyingMap() + ":" + i);
-                assertEquals(12L, i.id());
-                assertEquals(10L, i.identity());
-                assertEquals(BigDecimal.valueOf(9), i.user());
-                assertThrows(IllegalStateException.class, i::validate);
-                assertNull(i.underlyingChangedProperties());
+                assertNotNull(i.underlyingChangedProperties());
             }
         }
     }
@@ -252,17 +221,18 @@ class MimicTest {
             cfg.setDataSource(new HikariDataSource(hc));
             {
                 val dao = Mimic.Dao.newInstance(Fluent.class, FluentDao.class, cfg);
+                System.out.println(dao);
                 System.out.println(dao.DDL());
                 val i = Mimic.newInstance(Fluent.class, null);
                 i.id(12L);
                 i.identity(12L);
                 i.idOfUser(24L);
-                assertEquals(Arrays.asList("id", "identity", "idOfUser"), i.underlyingChangedProperties());
+                assertEquals(Seq.seq(Arrays.asList("id", "identity", "idOfUser")).sorted().toString(""), Seq.seq(i.underlyingChangedProperties()).sorted().toString(""));
                 dao.insert(i);
                 val i2 = dao.fetchById(12L);
                 System.out.println(i2);
                 i2.identity(8L);
-                assertEquals(Collections.singletonList("identity"), i2.underlyingChangedProperties());
+                assertEquals("identity", Seq.seq(i2.underlyingChangedProperties()).sorted().toString(""));
                 System.out.println(dao.update(i2));
                 val r = dao.fetchById(12L);
                 assertEquals(12L, r.id());
@@ -271,6 +241,7 @@ class MimicTest {
             }
             {
                 val dao = Mimic.Dao.newInstance(Flue.class, FlueDao.class, cfg);
+                System.out.println(dao);
                 System.out.println(dao.DDL());
                 val i = Mimic.newInstance(Flue.class, null);
                 i.id(12L);
@@ -285,8 +256,8 @@ class MimicTest {
         }
 
         @Test
-        void asmLazyProxyDao() {
-            Mimic.ByteASM.enable(true);
+        void asmProxyDao() {
+            Mimic.ByteASM.enable();
             val cfg = new DefaultConfiguration();
             cfg.setSQLDialect(SQLDialect.H2);
             val hc = new HikariConfig();
@@ -294,18 +265,19 @@ class MimicTest {
             cfg.setDataSource(new HikariDataSource(hc));
             {
                 val dao = Mimic.Dao.newInstance(Fluent.class, FluentDao.class, cfg);
+                System.out.println(dao);
                 System.out.println(dao.DDL());
                 dao.deleteAll();
                 val i = Mimic.newInstance(Fluent.class, null);
                 i.id(12L);
                 i.identity(12L);
                 i.idOfUser(24L);
-                assertEquals(Arrays.asList("id", "identity", "idOfUser"), i.underlyingChangedProperties());
+                assertEquals(Seq.seq(Arrays.asList("id", "identity", "idOfUser")).sorted().toString(""), Seq.seq(i.underlyingChangedProperties()).sorted().toString(""));
                 dao.insert(i);
                 val i2 = dao.fetchById(12L);
                 System.out.println(i2);
                 i2.identity(8L);
-                assertEquals(Collections.singletonList("identity"), i2.underlyingChangedProperties());
+                assertEquals("identity", Seq.seq(i2.underlyingChangedProperties()).sorted().toString(""));
                 System.out.println(dao.update(i2));
                 val r = dao.fetchById(12L);
                 assertEquals(12L, r.id());
@@ -314,6 +286,7 @@ class MimicTest {
             }
             {
                 val dao = Mimic.Dao.newInstance(Flue.class, FlueDao.class, cfg);
+                System.out.println(dao);
                 System.out.println(dao.DDL());
                 dao.deleteAll();
                 val i = Mimic.newInstance(Flue.class, null);
@@ -328,53 +301,10 @@ class MimicTest {
             }
         }
 
-        @Test
-        void asmEagerProxyDao() {
-            Mimic.ByteASM.enable(false);
-            val cfg = new DefaultConfiguration();
-            cfg.setSQLDialect(SQLDialect.H2);
-            val hc = new HikariConfig();
-            hc.setJdbcUrl("jdbc:h2:mem:test");
-            cfg.setDataSource(new HikariDataSource(hc));
-            {
-                val dao = Mimic.Dao.newInstance(Fluent.class, FluentDao.class, cfg);
-                System.out.println(dao.DDL());
-                dao.deleteAll();
-                val i = Mimic.newInstance(Fluent.class, null);
-                i.id(12L);
-                i.identity(12L);
-                i.idOfUser(24L);
-                assertEquals(Arrays.asList("id", "identity", "idOfUser"), i.underlyingChangedProperties());
-                dao.insert(i);
-                val i2 = dao.fetchById(12L);
-                System.out.println(i2);
-                i2.identity(8L);
-                assertEquals(Collections.singletonList("identity"), i2.underlyingChangedProperties());
-                System.out.println(dao.update(i2));
-                val r = dao.fetchById(12L);
-                assertEquals(12L, r.id());
-                assertEquals(8L, r.identity());
-                assertEquals(24L, r.idOfUser());
-            }
-            {
-                val dao = Mimic.Dao.newInstance(Flue.class, FlueDao.class, cfg);
-                System.out.println(dao.DDL());
-                dao.deleteAll();
-                val i = Mimic.newInstance(Flue.class, null);
-                i.id(12L);
-                i.identity(12L);
-                i.idOfUser(24L);
-                dao.insert(i);
-                val r = dao.fetchById(12L);
-                assertEquals(12L, r.id());
-                assertEquals(12L, r.identity());
-                assertEquals(24L, r.idOfUser());
-            }
-        }
 
         @Test
-        void asmLazyAsmDao() {
-            Mimic.ByteASM.enable(true);
+        void asmAsmDao() {
+            Mimic.ByteASM.enable();
             Mimic.Dao.ByteASM.enable();
             val cfg = new DefaultConfiguration();
             cfg.setSQLDialect(SQLDialect.H2);
@@ -383,18 +313,19 @@ class MimicTest {
             cfg.setDataSource(new HikariDataSource(hc));
             {
                 val dao = Mimic.Dao.newInstance(Fluent.class, FluentDao.class, cfg);
+                System.out.println(dao);
                 System.out.println(dao.DDL());
                 dao.deleteAll();
                 val i = Mimic.newInstance(Fluent.class, null);
                 i.id(12L);
                 i.identity(12L);
                 i.idOfUser(24L);
-                assertEquals(Arrays.asList("id", "identity", "idOfUser"), i.underlyingChangedProperties());
+                assertEquals(Seq.seq(Arrays.asList("id", "identity", "idOfUser")).sorted().toString(""), Seq.seq(i.underlyingChangedProperties()).sorted().toString(""));
                 dao.insert(i);
                 val i2 = dao.fetchById(12L);
                 System.out.println(i2);
                 i2.identity(8L);
-                assertEquals(Collections.singletonList("identity"), i2.underlyingChangedProperties());
+                assertEquals("identity", Seq.seq(i2.underlyingChangedProperties()).sorted().toString(""));
                 System.out.println(dao.update(i2));
                 val r = dao.fetchById(12L);
                 assertEquals(12L, r.id());
@@ -403,6 +334,7 @@ class MimicTest {
             }
             {
                 val dao = Mimic.Dao.newInstance(Flue.class, FlueDao.class, cfg);
+                System.out.println(dao);
                 System.out.println(dao.DDL());
                 dao.deleteAll();
                 val i = Mimic.newInstance(Flue.class, null);
