@@ -41,6 +41,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.*;
 
+import static cn.zenliu.java.mimic.Config.cacheSize;
 import static org.jooq.lambda.Seq.seq;
 import static org.jooq.lambda.tuple.Tuple.tuple;
 
@@ -224,10 +225,6 @@ public interface Mimic {
         }
     }
 
-    /**
-     * this effect on all internal Caffeine loading Caches
-     */
-    AtomicInteger cacheSize = new AtomicInteger(1024);
 
     @SuppressWarnings("rawtypes")
     @Slf4j
