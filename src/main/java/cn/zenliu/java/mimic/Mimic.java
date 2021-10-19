@@ -76,6 +76,7 @@ import static org.jooq.lambda.tuple.Tuple.tuple;
  * @apiNote
  * @since 2021-10-16
  */
+@SuppressWarnings({"DuplicatedCode", "unused"})
 public interface Mimic {
     /**
      * method to fetch internal Map,
@@ -368,14 +369,13 @@ public interface Mimic {
                         setPred = mixSetter;
                         getName = mixGetterName;
                         setName = mixSetterName;
-                        extract = internal::commonExtract;
                     } else {
                         getPred = beanGetter;
                         setPred = beanSetter;
                         getName = beanGetterName;
                         setName = beanSetterName;
-                        extract = internal::commonExtract;
                     }
+                    extract = internal::commonExtract;
                 }
             }
             return NamingStrategy.of(getPred, setPred, getName, setName, extract);
@@ -449,8 +449,8 @@ public interface Mimic {
             Consumer<Map<String, Object>>>>
         compute(Method m, Function<Method, String> n) {
             val type = m.getDeclaringClass();
-            final List<Class> ifaces = new ArrayList<>(Arrays.asList(type.getInterfaces()));
-            ifaces.add(0, type);
+            final List<Class> faces = new ArrayList<>(Arrays.asList(type.getInterfaces()));
+            faces.add(0, type);
             val name = n.apply(m);
             val ret = m.getReturnType();
             val param = m.getParameterCount() == 1 ? m.getParameters()[0].getType() : null;
@@ -464,12 +464,12 @@ public interface Mimic {
             boolean conv = false;
             //Array Annotation
             {
-                val ann = collectAnnotations(m, Array.class, ifaces);
+                val ann = collectAnnotations(m, Array.class, faces);
                 if (!ann.isEmpty()) {
                     conv = true;
                     val typ = ann.get(0).value();
                     processor = tuple(
-                        (Function<Object, Object>) v -> {
+                        v -> {
                             if (v instanceof List && !((List<?>) v).isEmpty()) {
                                 return Seq.seq((List<Map<String, Object>>) v).map(x -> instance(typ, x)).toList();
                             } else if (v instanceof Set && !((Set<?>) v).isEmpty()) {
@@ -480,7 +480,7 @@ public interface Mimic {
                                 return v;
                             }
                         },
-                        (Function<Object, Object>) v -> {
+                        v -> {
                             if (v instanceof List && !((List<?>) v).isEmpty()) {
                                 return Seq.seq((List<Mimic>) v).map(Mimic::underlyingMap).toList();
                             } else if (v instanceof Set && !((Set<?>) v).isEmpty()) {
@@ -523,7 +523,7 @@ public interface Mimic {
             //common Annotation Validate
             {
                 val exists = new HashSet<Tuple2<Class, String>>();
-                val va = Seq.seq(collectAnnotations(m, Validation.class, ifaces))
+                val va = Seq.seq(collectAnnotations(m, Validation.class, faces))
                     .map(x -> {
                         val id = tuple((Class) x.value(), x.property());
                         if (!exists.contains(id)) {
@@ -614,7 +614,7 @@ public interface Mimic {
         };
 
 
-        interface Factory<T extends Mimic> {
+        interface Factory {
             List<String> defaultMethodName = Arrays.asList("underlyingMap", "underlyingChangedProperties");
 
             Mimic build(Map<String, Object> data);
@@ -679,7 +679,7 @@ public interface Mimic {
                 val cann = cls.getAnnotationsByType(Concurrent.class);
                 //0 no concurrent, 1 use sync ,2 use concurrent hashmap
                 val concurrent = cann.length == 0 ? 0 : cann[0].value() ? 1 : 2;
-                val n = prop.size();
+                val n = prop.size(); //see hashMap default load factor
                 val mapBuilder =
                     concurrent == 2
                         ? (Supplier<Map<String, Object>>) () -> new ConcurrentHashMap<>(n)
@@ -691,10 +691,10 @@ public interface Mimic {
         //endregion
 
         interface DynamicProxy {
-            final class ProxyFactory<T extends Mimic> implements Factory<T> {
+            final class ProxyFactory implements Factory {
                 final AtomicReference<Constructor<MethodHandles.Lookup>> constructor = new AtomicReference<>();
                 final Supplier<Map<String, Object>> mapBuilder;
-                final Class<T> cls;
+                final Class cls;
                 final Function<String, String> extract;
                 final Validator validation;
                 final PropertiesInfo prop;
@@ -706,7 +706,7 @@ public interface Mimic {
                 }
 
                 ProxyFactory(Supplier<Map<String, Object>> mapBuilder,
-                             Class<T> cls,
+                             Class cls,
                              Function<String, String> extract,
                              Validator validation,
                              PropertiesInfo prop,
@@ -724,13 +724,13 @@ public interface Mimic {
                     final Object[] result = new Object[1];
                     final Map<String, Object> map = mapBuilder.get();
                     if (data != null && !data.isEmpty()) map.putAll(data);
-                    final Set<String> changes = new HashSet<>();
+                    final Set<String> changes = new HashSet<>(prop.size());
                     result[0] = Proxy.newProxyInstance(cls.getClassLoader(), new Class[]{cls}, (p, m, args) -> {
                         val method = m.getName();
                         val field = extract.apply(method);
                         switch (method) {
                             case "toString":
-                                return cls.getCanonicalName() + "$Proxy@" + Integer.toHexString(map.hashCode()) + map.toString();
+                                return cls.getCanonicalName() + "$Proxy@" + Integer.toHexString(map.hashCode()) + map;
                             case "hashCode":
                                 return map.hashCode();
                             case "equals":
@@ -809,7 +809,6 @@ public interface Mimic {
                 }
                 val info = Factory.infoCache.get(cls);
                 if (info == null) throw new IllegalStateException("could not generate mimic info from " + cls);
-                //noinspection unchecked
                 return new ProxyFactory(
                     info.mapBuilder,
                     cls,
@@ -825,11 +824,12 @@ public interface Mimic {
                 .build(DynamicProxy::build);
         }
 
-        @SuppressWarnings("unchecked")
+
         public interface Asm {
             @FunctionalInterface
             interface AsmCreator extends Function<Map, Object> {
             }
+
 
             interface FunctorInfo extends Map<String, Tuple2<Function<Object, Object>, BiConsumer<Object, Object>>> {
                 final class impl extends HashMap<String, Tuple2<Function<Object, Object>, BiConsumer<Object, Object>>> implements FunctorInfo {
@@ -863,7 +863,7 @@ public interface Mimic {
                 protected final AtomicReference<Map<String, Object>> inner = new AtomicReference<>();
                 protected final PropertiesInfo info;
                 protected final FunctorInfo functor;
-                protected final Set<String> changes = new HashSet<>();
+                protected final Set<String> changes;
                 protected final Validator validator;
                 protected final String name;
                 private final Object lock;
@@ -916,12 +916,18 @@ public interface Mimic {
                     if (validator != null) validator.accept(underlyingMap());
                 }
 
-                protected Base(Map<String, Object> inner, PropertiesInfo info, FunctorInfo functor, String name, int concurrentMode, Validator validator) {
+                protected Base(Map<String, Object> inner,
+                               PropertiesInfo info,
+                               FunctorInfo functor,
+                               String name,
+                               int concurrentMode,
+                               Validator validator) {
                     this.validator = validator;
                     this.inner.set(inner);
                     this.info = info;
                     this.functor = functor;
                     this.name = name;
+                    this.changes = new HashSet<>(info.size());
                     if (concurrentMode == 1) {
                         this.lock = new Object();
                     } else {
@@ -933,13 +939,15 @@ public interface Mimic {
                 public @NotNull Map<String, Object> underlyingMap() {
                     if (!changes.isEmpty() && version.get() != lastVersion.get()) {
                         trySync(() -> {
-                            if(inner.get()==null){
+                            if (inner.get() == null) {
                                 inner.set(new HashMap<>(info.size()));
                             }
                             val m = inner.get();
-                            (m.isEmpty() ? (info.keySet()) : changes).forEach((p) -> {
-                                m.put(p, info.get(p).invokeSetter(functor.get(p).v1.apply(self())));
-                            });
+                            (m.isEmpty() ? (info.keySet()) : changes)
+                                .forEach((p) -> m.put(p, info
+                                    .get(p)
+                                    .invokeSetter(functor.get(p).v1.apply(self())))
+                                );
                             lastVersion.set(version.get());
                         });
                     }
@@ -984,7 +992,7 @@ public interface Mimic {
             }
 
             @SuppressWarnings("rawtypes")
-            final class AsmFactory<T extends Mimic> implements Factory<T> {
+            final class AsmFactory implements Factory {
                 final PropertiesInfo prop;
                 final AsmCreator eager;
                 final Class type;
@@ -1099,6 +1107,7 @@ public interface Mimic {
             //endregion
 
             //cls->((lazyCtor,eagerCtor),properties)
+            @SuppressWarnings("unchecked")
             @SneakyThrows
             static <T extends Mimic> Tuple2<AsmCreator, PropertiesInfo> buildInfo(Class<T> cls) {
                 val typeName = cls.getCanonicalName() + "$ASM";
@@ -1135,7 +1144,7 @@ public interface Mimic {
                             {
                                 fn = fn.map1($ -> {
                                     try {
-                                        return (Function<Object, Object>) (Function) getter(
+                                        return (Function<Object, Object>) getter(
                                             findDeclared.apply(m),
                                             typo,
                                             m.getName())
@@ -1156,7 +1165,7 @@ public interface Mimic {
                             {
                                 fn = fn.map2($ -> {
                                     try {
-                                        return (BiConsumer<Object, Object>) (BiConsumer) setter(
+                                        return (BiConsumer<Object, Object>) setter(
                                             findDeclared.apply(m),
                                             typo,
                                             m.getName(),
@@ -1216,7 +1225,7 @@ public interface Mimic {
                     val ctorRef = eager.make()
                         .load(cls.getClassLoader())
                         .getLoaded()
-                        .getConstructor( //Map<String, Object> inner, PropertiesInfo info, FunctorInfo functor, String name, int concurrentMode, Validator validator
+                        .getConstructor(
                             Map.class,
                             PropertiesInfo.class,
                             FunctorInfo.class,
@@ -1262,7 +1271,7 @@ public interface Mimic {
         static final AtomicReference<Function<Class, Factory>> factory = new AtomicReference<>(DynamicProxy.cache::get);
 
 
-        @SuppressWarnings({"unchecked", "rawtypes"})
+        @SuppressWarnings({"rawtypes"})
         static Mimic instance(Class type, Map<String, Object> map) {
             return factory.get().apply(type).build(map);
         }
@@ -1283,7 +1292,7 @@ public interface Mimic {
      * <p>  {@link Mimic} used by Dao must directly annotate with {@link Dao.Entity}.
      * <p>  {@link Mimic} will enable Property Change Recording, which store changed Property Name in {@link Mimic#underlyingChangedProperties()}.
      */
-    @SuppressWarnings({"rawtypes", "unchecked"})
+    @SuppressWarnings({"rawtypes", "unchecked", "unused"})
     interface Dao<T extends Mimic> {
         /**
          * this is special case for MySQL can't use timestamp with TimeZone
@@ -1430,6 +1439,7 @@ public interface Mimic {
             }
 
             interface DynamicFactory {
+                @SuppressWarnings("DuplicatedCode")
                 final class Factory implements DaoFactory {
                     final Table<Record> table;
                     final Map<String, Field> fields;
@@ -1514,7 +1524,7 @@ public interface Mimic {
                     .build(DynamicFactory::factory);
 
                 static DaoFactory factory(Tuple2<Class, Class> type) {
-                    val info = DaoFactory.repoistoryInfoCache.get(type);
+                    val info = DaoFactory.repositoryInfoCache.get(type);
                     if (info == null) throw new IllegalStateException("could not generate repository info for " + type);
                     return new Factory(info.table, info.fields, info.dao, info.entity);
                 }
@@ -1649,7 +1659,6 @@ public interface Mimic {
                         this.fieldToProperty = fields == null ? null : seq(fields)
                             .map(x -> x.map2(Field::getName))
                             .map(Tuple2::swap).toMap(Tuple2::v1, Tuple2::v2);
-                        ;
                         this.ctor = build();
                     }
 
@@ -1679,7 +1688,7 @@ public interface Mimic {
                     .build(AsmFactory::factory);
 
                 static DaoFactory factory(Tuple2<Class, Class> type) {
-                    val info = DaoFactory.repoistoryInfoCache.get(type);
+                    val info = DaoFactory.repositoryInfoCache.get(type);
                     if (info == null) throw new IllegalStateException("could not generate repository info for " + type);
                     return new Factory(info.table, info.fields, info.dao, info.entity);
                 }
@@ -1692,7 +1701,7 @@ public interface Mimic {
 
                 Dao build(Configuration config);
 
-                LoadingCache<Tuple2<Class, Class>, RepoInfo> repoistoryInfoCache = Caffeine.newBuilder()
+                LoadingCache<Tuple2<Class, Class>, RepoInfo> repositoryInfoCache = Caffeine.newBuilder()
                     .softValues()
                     .maximumSize(cacheSize.get())
                     .build(DaoFactory::buildInfo);
@@ -1763,7 +1772,7 @@ public interface Mimic {
                     }
                     if (dataType == null)
                         throw new IllegalStateException("type " + type.getCanonicalName() + " can't convert to DataType!");
-                    return tuple(field, (Field) DSL.field(DSL.name(table.getName(), name), dataType));
+                    return tuple(field, DSL.field(DSL.name(table.getName(), name), dataType));
                 }
 
             }
@@ -1795,7 +1804,7 @@ public interface Mimic {
             @SuppressWarnings("unchecked")
             static <T extends Mimic, D extends Dao<T>> D createRepo(Class<T> type, Class<D> repo, Configuration config) {
                 setConfiguration(config);
-                return (D) factory(tuple((Class<Mimic>) type, (Class<Dao>) (Class<?>) repo))
+                return (D) factory(tuple((Class<Mimic>) type, (Class<Dao>) repo))
                     .build(config == null ? lastConfig.get() : config);
             }
 
