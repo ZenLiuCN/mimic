@@ -79,6 +79,6 @@ Jvm runtime interface Pojo and Repository generator
       MimicBenchmark.mimicBenchProxySetConv       avgt   50     90.640 ±    6.061  ns/op
       ----------------------------------------------------------------------------------
       * ASM setter use a lazy convert when generate map, but pojo do validate and convert when set or get.
-      ** Average build time is the cost without interface analysis and internal Objects creation,those are cached with Caffiene
+      ** Average build time is the cost without interface analysis and internal Objects creation,those are cached with Caffeine
 
 ```
