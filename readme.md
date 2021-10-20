@@ -1,5 +1,5 @@
 # Mimic
-![v](https://img.shields.io/maven-central/v/io.github.ZenLiuCn.java/mimic?style=flat-square)
+![v](https://img.shields.io/maven-central/v/io.github.zenliucn.java/mimic?style=flat-square)
 ![lic](https://img.shields.io/github/license/zenLiucn/mimic?style=flat-square)
 
 Jvm runtime interface Pojo and Repository generator
