@@ -4,7 +4,7 @@
 
     <groupId>io.github.ZenLiuCn.java</groupId>
     <artifactId>mimic</artifactId>
-    <version>1.0.1-SNAPSHOT</version>
+    <version>1.0.0-SNAPSHOT</version>
     <name>mimic</name>
     <description>effective runtime interface to pojo and jooq repository generator.</description>
     <url>https://www.github.com/ZenLiuCn/mimic</url>
@@ -212,7 +212,6 @@
                 <version>1.6.7</version>
                 <extensions>true</extensions>
                 <configuration>
-                    <stagingProfileId>io.github.ZenLiuCn</stagingProfileId>
                     <serverId>ossrh_release</serverId>
                     <nexusUrl>https://s01.oss.sonatype.org/</nexusUrl>
                     <autoReleaseAfterClose>true</autoReleaseAfterClose>
