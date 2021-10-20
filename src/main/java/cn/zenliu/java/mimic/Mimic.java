@@ -375,7 +375,7 @@ public interface Mimic {
         }
 
         //region Predicate
-        final static Predicate<Method> isPublicNoneDefault = x -> !x.isDefault() && Modifier.isPublic(x.getModifiers());
+        final static Predicate<Method> isPublicNoneDefault = x -> !x.isDefault() && !Modifier.isStatic(x.getModifiers()) && Modifier.isPublic(x.getModifiers());
         final static Predicate<Method> isBeanGetter = x -> (x.getParameterCount() == 0 &&
             (x.getName().startsWith("get") && x.getReturnType() != Void.TYPE ||
                 (x.getReturnType() == boolean.class && x.getName().startsWith("is")))
@@ -1802,14 +1802,14 @@ public interface Mimic {
         /**
          * create new Dao instance
          *
-         * @param type   the Mimic type
-         * @param repo   the Dao type
+         * @param entity the Mimic type
+         * @param dao    the Dao type
          * @param config the jooq configuration, if already set once or set with {@link Dao#setConfiguration}, it could be null.
          *               <b>Note:</b> everytime pass a configuration will override global configuration in Dao. but won't affect with Dao instance.
          * @return a Dao Instance
          */
-        static <T extends Mimic, D extends Dao<T>> D newInstance(@NotNull Class<T> type, @NotNull Class<D> repo, Configuration config) {
-            return internal.createRepo(type, repo, config);
+        static <T extends Mimic, D extends Dao<T>> D newInstance(@NotNull Class<T> entity, @NotNull Class<D> dao, Configuration config) {
+            return internal.createRepo(entity, dao, config);
         }
 
     }

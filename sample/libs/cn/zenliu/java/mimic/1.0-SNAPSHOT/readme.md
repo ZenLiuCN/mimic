@@ -1,0 +1,1 @@
+put packaged jar here, eg `mimic-1.0-SNAPSHOT.jar`
