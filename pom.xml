@@ -21,7 +21,6 @@
         <connection>scm:git:git@github.com:ZenLiuCN/mimic.git</connection>
         <url>scm:git:git@github.com:ZenLiuCN/mimic.git</url>
         <developerConnection>scm:git:git@github.com:ZenLiuCN/mimic.git</developerConnection>
-        <tag>v1.0.0</tag>
     </scm>
     <licenses>
         <license>
