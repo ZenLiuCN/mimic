@@ -111,3 +111,152 @@ Jvm runtime interface Pojo and Repository generator
       ** Average build time is the cost without interface analysis and internal Objects creation,those are cached with Caffeine
 
 ```
+
+## usage
+
+```xml
+
+<dependency>
+    <groupId>io.github.ZenLiuCn.java</groupId>
+    <artifactId>mimic</artifactId>
+    <version>1.0.0</version>
+</dependency>
+```
+
+define interface as data structure
+
+```java
+//define a interface 
+
+import cn.zenliu.java.mimic.Mimic;
+
+import java.util.Map;
+
+@Mimic.Dao.Entity //only want to use a Jooq DAO
+public interface Fluent extends Mimic {
+    long id();
+
+    void id(long val);
+
+    @Validation(property = "notNull")
+    Long identity();
+
+    Fluent identity(Long val);
+
+    @AsString
+        // this field will store as String
+    Long idOfUser();
+
+    Fluent idOfUser(Long val);
+
+    @Override
+    default void validate() throws IllegalStateException {
+        if (identity() > 10) {
+            throw new IllegalStateException("identity must less than 10");
+        }
+    }
+
+    static Fluent of(Map<String, Object> value) {
+        return Mimic.newInstance(Fluent.class, value);
+    }
+}
+```
+
+define the JOOQ DAO
+
+```java
+interface FluentDao extends Mimic.Dao<Fluent> {
+    //the static factory method
+    static FluentDao of(Configuration cfg) {
+        return Dao.newInstance(Fluent.class, FluentDao.class, cfg);
+    }
+
+    //define the Identity column
+    @As(typeHolder = Dao.class, typeProperty = "BigIntIdentity")
+    Field<Long> id();
+
+    //define store as BIGINT, not really need this, common type will guess by JOOQ
+    @As(typeHolder = SQLDataType.class, typeProperty = "BIGINT")
+    Field<Long> identity();
+
+    @As(typeHolder = SQLDataType.class, typeProperty = "VARCHAR")
+    Field<String> idOfUser();
+
+    //must override to supply all fields
+    @Override
+    default List<Field<?>> allFields() {
+        return Arrays.asList(id(), identity(), idOfUser());
+    }
+
+    //extend DAO actions
+    default int insert(Fluent i) {
+        return ctx().insertInto(table()).set(toDatabase(i.underlyingMap())).execute();
+    }
+
+    default Fluent fetchById(long id) {
+        return instance(ctx().selectFrom(table()).where(id().eq(id)).fetchOne().intoMap());
+    }
+
+    default Fluent fetchByIdentity(long identity) {
+        return instance(ctx().selectFrom(table()).where(identity().eq(identity)).fetchOne().intoMap());
+    }
+
+    default Fluent update(Fluent i) {
+        if (i.id() == 0) {
+            throw new IllegalStateException("can't update entity have no id");
+        }
+        val und = i.underlyingMap();
+        val changes = i.underlyingChangedProperties();
+        if (changes == null || changes.isEmpty()) throw new IllegalStateException("nothing to update entity");
+        val m = new HashMap<String, Object>();
+        for (String property : changes) {
+            m.put(property, und.get(property));
+        }
+        if (ctx().update(table()).set(toDatabase(m)).where(id().eq(i.id())).execute() < 1) {
+            throw new IllegalStateException("update failure");
+        }
+        return i;
+    }
+
+    default void deleteAll() {
+        ctx().delete(table()).execute();
+    }
+}
+
+```
+
+use them
+
+```java
+
+@Slf4j
+public class Launcher {
+    static final DefaultConfiguration cfg;
+
+    static {
+        Config.cacheSize.set(500);
+        cfg = new DefaultConfiguration();
+        cfg.setSQLDialect(SQLDialect.H2);
+        val hc = new HikariConfig();
+        hc.setJdbcUrl("jdbc:h2:mem:test");
+        cfg.setDataSource(new HikariDataSource(hc));
+    }
+
+    public static void main(String[] args) {
+        val v = Fluent.of(null);
+        log.info("create {}", v);
+        v.id(12L);
+        v.identity(12L);
+        log.info("add id: {}", v);
+        log.info("class is : {}", v.getClass());
+        val dao = Fluent.FluentDao.of(cfg);
+        log.info("dao {}", dao);
+        log.info("dao class {}", dao.getClass());
+        log.info("ddl result: {}", dao.DDL());
+        log.info("insert result: {}", dao.insert(v));
+        log.info("select result: {}", dao.fetchById(12L));
+        log.info("select result: {}", dao.fetchByIdentity(12L));
+    }
+}
+
+```
