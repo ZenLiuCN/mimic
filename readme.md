@@ -1,6 +1,7 @@
 # Mimic
 ![v](https://img.shields.io/maven-central/v/io.github.zenliucn.java/mimic?style=flat-square)
-![lic](https://img.shields.io/github/license/zenLiucn/mimic?style=flat-square)
+![lic](https://img.shields.io/badge/license-LGPL-GREEN)
+![size](https://img.shields.io/badge/size-75.2k-GREEN)
 
 Jvm runtime interface Pojo and Repository generator
 
@@ -112,15 +113,53 @@ Jvm runtime interface Pojo and Repository generator
 
 ```
 
+## dependency
+
+1. `org.slf4j:slf4j-api:1.7.32` use for logging
+2. `org.jooq:jool-java-8:0.9.14` use for tuples and Seq, maybe removed future.
+3. `com.github.ben-manes.caffeine:caffeine:2.9.2` use for cache.
+
+## optional dependency
+
+1. `net.bytebuddy:byte-buddy:1.11.20`: needed to generate ASM by use `ByteASM` mode.
+2. `org.jooq:jooq:3.14.7`: needed when use `DAO` extension.
+
 ## usage
 
 ```xml
 
-<dependency>
-    <groupId>io.github.ZenLiuCn.java</groupId>
-    <artifactId>mimic</artifactId>
-    <version>1.0.0</version>
-</dependency>
+<dependencies>
+    <!-- only requirement for just use JDK proxy mode  -->
+    <dependency>
+        <groupId>io.github.ZenLiuCn.java</groupId>
+        <artifactId>mimic</artifactId>
+        <version>1.0.0</version>
+    </dependency>
+    <!-- needed to use ByteASM mode  -->
+    <dependency>
+        <groupId>net.bytebuddy</groupId>
+        <artifactId>byte-buddy</artifactId>
+        <version>1.10.17</version>
+    </dependency>
+    <!-- needed to use DAO extension  -->
+    <dependency>
+        <groupId>org.jooq</groupId>
+        <artifactId>jooq</artifactId>
+        <version>3.14.7</version>
+    </dependency>
+    <!-- use as database  -->
+    <dependency>
+        <groupId>com.h2database</groupId>
+        <artifactId>h2</artifactId>
+        <version>1.4.200</version>
+    </dependency>
+    <!-- use as connection pool  -->
+    <dependency>
+        <groupId>com.zaxxer</groupId>
+        <artifactId>HikariCP</artifactId>
+        <version>2.7.9</version>
+    </dependency>
+</dependencies>
 ```
 
 define interface as data structure
@@ -260,3 +299,8 @@ public class Launcher {
 }
 
 ```
+
+## misc
+
+More sample just check out maven project in `sample` directory. There may be a small example Project to
+use `mimic+h2+jooq+reactor-netty` as micro webservice, if got time.
