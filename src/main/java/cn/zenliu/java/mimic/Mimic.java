@@ -243,6 +243,7 @@ public interface Mimic {
             final Validator validation;
             final List<Method> defaultMethods;
             final Map<String, Tuple3<Method, Method, PropertyInfo>> propertyInfo;
+            final Map<String, Object> defaultValues;
 
             PropertiesInfo getPropertyInfo() {
                 return PropertiesInfo.of(seq(propertyInfo)
@@ -658,8 +659,31 @@ public interface Mimic {
                     concurrent == 2
                         ? (Supplier<Map<String, Object>>) () -> new ConcurrentHashMap<>(n)
                         : (Supplier<Map<String, Object>>) () -> new HashMap<>(n);
-
-                return MimicInfo.of(mapBuilder, strategy, concurrent, validator, other, info);
+                val defaultValues = seq(info).map(x -> x.map2(v -> {
+                    val type = v.v3.type;
+                    val conv = v.v3.setterConv;
+                    if (type.isPrimitive()) {
+                        if (char.class.equals(type)) {
+                            return conv != null ? conv.apply((char) 0) : (char) 0;
+                        } else if (byte.class.equals(type)) {
+                            return conv != null ? conv.apply((byte) 0) : (byte) 0;
+                        } else if (short.class.equals(type)) {
+                            return conv != null ? conv.apply((short) 0) : (short) 0;
+                        } else if (int.class.equals(type)) {
+                            return conv != null ? conv.apply(0) : 0;
+                        } else if (long.class.equals(type)) {
+                            return conv != null ? conv.apply((long) 0) : (long) 0;
+                        } else if (double.class.equals(type)) {
+                            return conv != null ? conv.apply((double) 0) : (double) 0;
+                        } else if (float.class.equals(type)) {
+                            return conv != null ? conv.apply((float) 0) : (float) 0;
+                        } else if (boolean.class.equals(type)) {
+                            return conv != null ? conv.apply(false) : false;
+                        }
+                    }
+                    return null;
+                })).filter(x -> x.v2 != null).toMap(Tuple2::v1, Tuple2::v2);
+                return MimicInfo.of(mapBuilder, strategy, concurrent, validator, other, info, defaultValues);
             }
         }
         //endregion
@@ -673,6 +697,7 @@ public interface Mimic {
                 final Validator validation;
                 final PropertiesInfo prop;
                 final int concurrent;
+                final Map<String, Object> defaultValues;
 
                 @Override
                 public PropertiesInfo properties() {
@@ -684,20 +709,25 @@ public interface Mimic {
                              Function<String, String> extract,
                              Validator validation,
                              PropertiesInfo prop,
-                             int concurrent
-                ) {
+                             int concurrent,
+                             Map<String, Object> defaultValues) {
                     this.mapBuilder = mapBuilder;
                     this.cls = cls;
                     this.extract = extract;
                     this.validation = validation;
                     this.prop = prop;
                     this.concurrent = concurrent;
+                    this.defaultValues = defaultValues;
                 }
 
                 public Mimic build(Map<String, Object> data) {
                     final Object[] result = new Object[1];
                     final Map<String, Object> map = mapBuilder.get();
                     if (data != null && !data.isEmpty()) map.putAll(data);
+                    //default values
+                    if (defaultValues != null && !defaultValues.isEmpty()) {
+                        defaultValues.forEach(map::putIfAbsent);
+                    }
                     final Set<String> changes = new HashSet<>(prop.size());
                     result[0] = Proxy.newProxyInstance(cls.getClassLoader(), new Class[]{cls}, (p, m, args) -> {
                         val method = m.getName();
@@ -789,7 +819,8 @@ public interface Mimic {
                     info.strategy.extract,
                     info.validation,
                     info.getPropertyInfo(),
-                    info.concurrentMode);
+                    info.concurrentMode,
+                    info.defaultValues);
             }
 
             LoadingCache<Class, Factory> cache = Caffeine.newBuilder()
@@ -1195,6 +1226,8 @@ public interface Mimic {
                     .intercept(SuperMethodCall.INSTANCE);
                 val prop = info.getPropertyInfo();
                 {
+                    val defaultValues = info.defaultValues;
+
                     // val functor = functorBuilder(cls);//build functor
                     val ctorRef = eager.make()
                         .load(cls.getClassLoader())
@@ -1212,12 +1245,16 @@ public interface Mimic {
                     ctor = (m) -> {
                         try {
                             val x = builder.get();
-                            val t = (T) ctorRef.newInstance(x, prop, functor, typeName, con, valid);
                             if (m != null && !m.isEmpty()) {
                                 x.putAll(m);
-                                val b = (Base) t;
-                                b.initial();
                             }
+                            if (defaultValues != null && !defaultValues.isEmpty()) {
+                                defaultValues.forEach(x::putIfAbsent);
+                            }
+                            val t = (T) ctorRef.newInstance(x, prop, functor, typeName, con, valid);
+                            val b = (Base) t;
+                            if (m != null && !m.isEmpty())
+                                b.initial();
                             return t;
                         } catch (InstantiationException | InvocationTargetException | IllegalAccessException e) {
                             throw new RuntimeException(e);
