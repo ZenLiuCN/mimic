@@ -77,6 +77,33 @@ Jvm runtime interface Pojo and Repository generator
       MimicBenchmark.mimicBenchPojoSetConv        avgt   50     55.036 ±    6.174  ns/op
       MimicBenchmark.mimicBenchAsmSetConv*        avgt   50     18.637 ±    0.825  ns/op
       MimicBenchmark.mimicBenchProxySetConv       avgt   50     90.640 ±    6.061  ns/op
+      
+      Intel(R) Xeon(R) CPU E5-2678 v3 @ 2.50GHz X2 Linux X64
+      
+      MimicBenchmark.mimicBenchPojoBuildOneShot     ss   50   7557.820 ±  7871.119  ns/op
+      MimicBenchmark.mimicBenchAsmBuildOneShot      ss   50  91394.300 ± 50905.101  ns/op
+      MimicBenchmark.mimicBenchProxyBuildOneShot    ss   50  62893.256 ± 30947.078  ns/op
+      
+      MimicBenchmark.mimicBenchPojoBuild          avgt   50     55.184 ±    34.656  ns/op
+      MimicBenchmark.mimicBenchAsmBuild **        avgt   50   2729.979 ±   489.367  ns/op
+      MimicBenchmark.mimicBenchProxyBuild **      avgt   50   4643.816 ±  9103.532  ns/op
+      
+      MimicBenchmark.mimicBenchPojoGet            avgt   50      3.630 ±     0.159  ns/op
+      MimicBenchmark.mimicBenchAsmGet             avgt   50      3.820 ±     0.193  ns/op
+      MimicBenchmark.mimicBenchProxyGet           avgt   50     25.273 ±     1.166  ns/op
+      
+      MimicBenchmark.mimicBenchPojoGetConv *      avgt   50    325.344 ±   215.961  ns/op
+      MimicBenchmark.mimicBenchAsmGetConv *       avgt   50      4.523 ±     0.221  ns/op
+      MimicBenchmark.mimicBenchProxyGetConv *     avgt   50    358.351 ±   239.475  ns/op
+      
+      MimicBenchmark.mimicBenchPojoSet            avgt   50     12.567 ±     0.432  ns/op
+      MimicBenchmark.mimicBenchAsmSet             avgt   50     22.138 ±     1.440  ns/op
+      MimicBenchmark.mimicBenchProxySet           avgt   50   2467.734 ±   271.575  ns/op
+      
+      MimicBenchmark.mimicBenchPojoSetConv        avgt   50     92.628 ±    43.897  ns/op
+      MimicBenchmark.mimicBenchAsmSetConv         avgt   50     25.559 ±     1.064  ns/op
+      MimicBenchmark.mimicBenchProxySetConv       avgt   50    168.255 ±    90.126  ns/op
+
       ----------------------------------------------------------------------------------
       * ASM setter use a lazy convert when generate map, but pojo do validate and convert when set or get.
       ** Average build time is the cost without interface analysis and internal Objects creation,those are cached with Caffeine

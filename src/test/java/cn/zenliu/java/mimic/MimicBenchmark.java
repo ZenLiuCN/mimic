@@ -66,6 +66,7 @@ public class MimicBenchmark {
      * MimicBenchmark.mimicBenchAsmBuildOneShot      ss   50  24174.228 ± 4984.977  ns/op
      * MimicBenchmark.mimicBenchPojoBuildOneShot     ss   50   1399.364 ±  250.398  ns/op
      * MimicBenchmark.mimicBenchProxyBuildOneShot    ss   50  20351.224 ± 3494.686  ns/op
+     *
      * <b>Intel(R) Xeon(R) CPU E5-2678 v3 @ 2.50GHz X2 Linux X64</b>
      * Benchmark                                   Mode  Cnt      Score       Error  Units
      * MimicBenchmark.mimicBenchAsmBuild           avgt   50   2729.979 ±   489.367  ns/op
@@ -85,6 +86,7 @@ public class MimicBenchmark {
      * MimicBenchmark.mimicBenchProxySetConv       avgt   50    168.255 ±    90.126  ns/op
      * MimicBenchmark.mimicBenchAsmBuildOneShot      ss   50  91394.300 ± 50905.101  ns/op
      * MimicBenchmark.mimicBenchPojoBuildOneShot     ss   50   7557.820 ±  7871.119  ns/op
+     * MimicBenchmark.mimicBenchProxyBuildOneShot    ss   50  62893.256 ± 30947.078  ns/op
      * </pre>
      */
 
