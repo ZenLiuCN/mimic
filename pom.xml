@@ -30,6 +30,16 @@
             <distribution>repo</distribution>
         </license>
     </licenses>
+    <distributionManagement>
+        <snapshotRepository>
+            <id>ossrh_snapshot</id>
+            <url>https://s01.oss.sonatype.org/content/repositories/snapshots</url>
+        </snapshotRepository>
+        <repository>
+            <id>ossrh_release</id>
+            <url>https://s01.oss.sonatype.org/service/local/staging/deploy/maven2/</url>
+        </repository>
+    </distributionManagement>
     <properties>
         <maven.compiler.source>8</maven.compiler.source>
         <maven.compiler.target>8</maven.compiler.target>
@@ -170,9 +180,8 @@
                 <configuration>
                     <goals>deploy nexus-staging:release</goals>
                     <autoVersionSubmodules>true</autoVersionSubmodules>
-                    <useReleaseProfile>false</useReleaseProfile>
-                    <releaseProfiles>release</releaseProfiles>
-                    <goals>deploy</goals>
+                    <useReleaseProfile>true</useReleaseProfile>
+                    <releaseProfiles>io.github.ZenLiuCn</releaseProfiles>
                 </configuration>
             </plugin>
             <plugin>
