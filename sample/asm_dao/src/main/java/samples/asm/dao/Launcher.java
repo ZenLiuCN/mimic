@@ -10,6 +10,7 @@ import org.jooq.SQLDialect;
 import org.jooq.impl.DefaultConfiguration;
 
 import java.math.BigDecimal;
+import java.sql.SQLException;
 
 @Slf4j
 public class Launcher {
@@ -26,7 +27,7 @@ public class Launcher {
         cfg.setDataSource(new HikariDataSource(hc));
     }
 
-    public static void main(String[] args) {
+    public static void main(String[] args) throws SQLException {
         val v = Fluent.of(null);
         log.info("create {}", v);
         v.id(12L);
@@ -42,7 +43,7 @@ public class Launcher {
         log.info("select result: {}", dao.fetchByIdentity(12L));
         try {
             dao.ctx().transaction(c -> {
-                val trans = Fluent.FlueDao.transaction(c);
+                val trans = Fluent.FlueDao.of(c);
                 trans.DDL();
                 val flue = Fluent.Flue.of(null);
                 flue.id(10);

@@ -19,7 +19,6 @@ import com.github.benmanes.caffeine.cache.Caffeine;
 import com.github.benmanes.caffeine.cache.LoadingCache;
 import lombok.AllArgsConstructor;
 import lombok.SneakyThrows;
-import lombok.extern.slf4j.Slf4j;
 import lombok.val;
 import lombok.var;
 import net.bytebuddy.ByteBuddy;
@@ -39,6 +38,8 @@ import org.jooq.lambda.tuple.Tuple2;
 import org.jooq.lambda.tuple.Tuple3;
 import org.jooq.lambda.tuple.Tuple4;
 import org.jooq.lambda.tuple.Tuple5;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.lang.annotation.*;
 import java.lang.invoke.CallSite;
@@ -47,6 +48,7 @@ import java.lang.invoke.MethodHandles;
 import java.lang.invoke.MethodType;
 import java.lang.reflect.*;
 import java.math.BigDecimal;
+import java.sql.SQLException;
 import java.sql.Timestamp;
 import java.time.Instant;
 import java.util.*;
@@ -93,6 +95,8 @@ import static org.jooq.lambda.tuple.Tuple.tuple;
  */
 @SuppressWarnings({"DuplicatedCode", "unused"})
 public interface Mimic {
+    Logger log = LoggerFactory.getLogger(Mimic.class);
+
     /**
      * method to fetch internal Map,
      * <p><b>Note:</b>Never TO OVERRIDDEN
@@ -241,7 +245,6 @@ public interface Mimic {
 
 
     @SuppressWarnings("rawtypes")
-    @Slf4j
     final class internal {
         private internal() {
             throw new IllegalAccessError();
@@ -620,84 +623,89 @@ public interface Mimic {
              * @return (MapBuilder, MethodPropertyNameExtract, ConcurrentMode, EntityValidation, DefaultMethods, PropertyInfos)
              */
             static MimicInfo infoBuild(Class<?> cls) {
-                val strategy = nameStrategy(cls);
-                val methods = cls.getMethods();
-                val getters = Seq.of(methods).filter(strategy.getPred)
-                    .filter(x -> !defaultMethodName.contains(x.getName()))
-                    .toList();
-                val setters = Seq.of(methods).filter(strategy.setPred).toList();
-                val other = Seq.of(methods).filter(Method::isDefault).toList();
-                val getProcessor = seq(getters)
-                    .map(x -> compute(x, strategy.getName).map2(v -> tuple(x, (Method) null, v)))
-                    .toMap(Tuple2::v1, Tuple2::v2);
-                val setProcessor = seq(setters)
-                    .map(x -> compute(x, strategy.setName).map2(v -> tuple((Method) null, x, v)))
-                    .toMap(Tuple2::v1, Tuple2::v2);
-                //Property->(GetterMethod,SetterMethod,GetterProcessor,SetterProcessor,Validator,PropertyType)
-                val prop = new HashMap<String, Tuple3<Method, Method, Tuple4<Function<Object, Object>, Function<Object, Object>, BiConsumer<String, Object>, Class>>>();
-                Validator validator = null;
-                for (String k : getProcessor.keySet()) {
-                    val v = getProcessor.get(k);
-                    prop.put(k, v.map3(Tuple5::limit4));
-                    if (v.v3.v5 != null)
-                        validator = validator == null ? v.v3.v5::accept : validator.andThen(v.v3.v5)::accept;
-                }
-                for (String k : setProcessor.keySet()) {
-                    val v = setProcessor.get(k);
-                    val v0 = prop.putIfAbsent(k, v.map3(Tuple5::limit4));
-                    if (v0 != null) {
-                        var v1 = v0;
-                        v1 = v1.map2($ -> v.v2);
-                        if (v1.v3.v1 == null && v.v3.v1 != null) {
-                            v1 = v1.map3(v3 -> v3.map1(x -> v.v3.v1));
-                        }
-                        if (v1.v3.v2 == null && v.v3.v2 != null) {
-                            v1 = v1.map3(v3 -> v3.map2(x -> v.v3.v2));
-                        }
-                        if (v1.v3.v3 == null && v.v3.v3 != null) {
-                            v1 = v1.map3(v3 -> v3.map3(x -> v.v3.v3));
-                        }
-                        prop.put(k, v1);
+                try {
+                    val strategy = nameStrategy(cls);
+                    val methods = cls.getMethods();
+                    val getters = Seq.of(methods).filter(strategy.getPred)
+                        .filter(x -> !defaultMethodName.contains(x.getName()))
+                        .toList();
+                    val setters = Seq.of(methods).filter(strategy.setPred).toList();
+                    val other = Seq.of(methods).filter(Method::isDefault).toList();
+                    val getProcessor = seq(getters)
+                        .map(x -> compute(x, strategy.getName).map2(v -> tuple(x, (Method) null, v)))
+                        .toMap(Tuple2::v1, Tuple2::v2);
+                    val setProcessor = seq(setters)
+                        .map(x -> compute(x, strategy.setName).map2(v -> tuple((Method) null, x, v)))
+                        .toMap(Tuple2::v1, Tuple2::v2);
+                    //Property->(GetterMethod,SetterMethod,GetterProcessor,SetterProcessor,Validator,PropertyType)
+                    val prop = new HashMap<String, Tuple3<Method, Method, Tuple4<Function<Object, Object>, Function<Object, Object>, BiConsumer<String, Object>, Class>>>();
+                    Validator validator = null;
+                    for (String k : getProcessor.keySet()) {
+                        val v = getProcessor.get(k);
+                        prop.put(k, v.map3(Tuple5::limit4));
+                        if (v.v3.v5 != null)
+                            validator = validator == null ? v.v3.v5::accept : validator.andThen(v.v3.v5)::accept;
                     }
-                    if (v.v3.v5 != null)
-                        validator = validator == null ? v.v3.v5::accept : validator.andThen(v.v3.v5)::accept;
-                }
-                val info = seq(prop)
-                    .map(x -> x.map2(v -> v.map3(t -> new PropertyInfo(x.v1, t))))
-                    .toMap(Tuple2::v1, Tuple2::v2);
-                val cann = cls.getAnnotationsByType(Concurrent.class);
-                //0 no concurrent, 1 use sync ,2 use concurrent hashmap
-                val concurrent = cann.length == 0 ? 0 : cann[0].value() ? 1 : 2;
-                val n = prop.size(); //see hashMap default load factor
-                val mapBuilder =
-                    concurrent == 2
-                        ? (Supplier<Map<String, Object>>) () -> new ConcurrentHashMap<>(n)
-                        : (Supplier<Map<String, Object>>) () -> new HashMap<>(n);
-                val defaultValues = seq(info).map(x -> x.map2(v -> {
-                    val type = v.v3.type;
-                    val conv = v.v3.setterConv;
-                    if (type.isPrimitive()) {
-                        if (char.class.equals(type)) {
-                            return conv != null ? conv.apply((char) 0) : (char) 0;
-                        } else if (byte.class.equals(type)) {
-                            return conv != null ? conv.apply((byte) 0) : (byte) 0;
-                        } else if (short.class.equals(type)) {
-                            return conv != null ? conv.apply((short) 0) : (short) 0;
-                        } else if (int.class.equals(type)) {
-                            return conv != null ? conv.apply(0) : 0;
-                        } else if (long.class.equals(type)) {
-                            return conv != null ? conv.apply((long) 0) : (long) 0;
-                        } else if (double.class.equals(type)) {
-                            return conv != null ? conv.apply((double) 0) : (double) 0;
-                        } else if (float.class.equals(type)) {
-                            return conv != null ? conv.apply((float) 0) : (float) 0;
-                        } else if (boolean.class.equals(type)) {
-                            return conv != null ? conv.apply(false) : false;
+                    for (String k : setProcessor.keySet()) {
+                        val v = setProcessor.get(k);
+                        val v0 = prop.putIfAbsent(k, v.map3(Tuple5::limit4));
+                        if (v0 != null) {
+                            var v1 = v0;
+                            v1 = v1.map2($ -> v.v2);
+                            if (v1.v3.v1 == null && v.v3.v1 != null) {
+                                v1 = v1.map3(v3 -> v3.map1(x -> v.v3.v1));
+                            }
+                            if (v1.v3.v2 == null && v.v3.v2 != null) {
+                                v1 = v1.map3(v3 -> v3.map2(x -> v.v3.v2));
+                            }
+                            if (v1.v3.v3 == null && v.v3.v3 != null) {
+                                v1 = v1.map3(v3 -> v3.map3(x -> v.v3.v3));
+                            }
+                            prop.put(k, v1);
                         }
+                        if (v.v3.v5 != null)
+                            validator = validator == null ? v.v3.v5::accept : validator.andThen(v.v3.v5)::accept;
                     }
-                    return null;
-                })).filter(x -> x.v2 != null).toMap(Tuple2::v1, Tuple2::v2);
-                return MimicInfo.of(mapBuilder, strategy, concurrent, validator, other, info, defaultValues);
+                    val info = seq(prop)
+                        .map(x -> x.map2(v -> v.map3(t -> new PropertyInfo(x.v1, t))))
+                        .toMap(Tuple2::v1, Tuple2::v2);
+                    val cann = cls.getAnnotationsByType(Concurrent.class);
+                    //0 no concurrent, 1 use sync ,2 use concurrent hashmap
+                    val concurrent = cann.length == 0 ? 0 : cann[0].value() ? 1 : 2;
+                    val n = prop.size(); //see hashMap default load factor
+                    val mapBuilder =
+                        concurrent == 2
+                            ? (Supplier<Map<String, Object>>) () -> new ConcurrentHashMap<>(n)
+                            : (Supplier<Map<String, Object>>) () -> new HashMap<>(n);
+                    val defaultValues = seq(info).map(x -> x.map2(v -> {
+                        val type = v.v3.type;
+                        val conv = v.v3.setterConv;
+                        if (type.isPrimitive()) {
+                            if (char.class.equals(type)) {
+                                return conv != null ? conv.apply((char) 0) : (char) 0;
+                            } else if (byte.class.equals(type)) {
+                                return conv != null ? conv.apply((byte) 0) : (byte) 0;
+                            } else if (short.class.equals(type)) {
+                                return conv != null ? conv.apply((short) 0) : (short) 0;
+                            } else if (int.class.equals(type)) {
+                                return conv != null ? conv.apply(0) : 0;
+                            } else if (long.class.equals(type)) {
+                                return conv != null ? conv.apply((long) 0) : (long) 0;
+                            } else if (double.class.equals(type)) {
+                                return conv != null ? conv.apply((double) 0) : (double) 0;
+                            } else if (float.class.equals(type)) {
+                                return conv != null ? conv.apply((float) 0) : (float) 0;
+                            } else if (boolean.class.equals(type)) {
+                                return conv != null ? conv.apply(false) : false;
+                            }
+                        }
+                        return null;
+                    })).filter(x -> x.v2 != null).toMap(Tuple2::v1, Tuple2::v2);
+                    return MimicInfo.of(mapBuilder, strategy, concurrent, validator, other, info, defaultValues);
+                } catch (Exception e) {
+                    log.error("fail to build Mimic '{}' information", cls, e);
+                    throw e;
+                }
             }
         }
         //endregion
@@ -1129,153 +1137,160 @@ public interface Mimic {
             @SuppressWarnings("unchecked")
             @SneakyThrows
             static <T extends Mimic> Tuple2<AsmCreator, PropertiesInfo> buildInfo(Class<T> cls) {
-                val typeName = cls.getCanonicalName() + "$ASM";
-                val info = Factory.infoCache.get(cls);
-                if (info == null) throw new IllegalStateException("could not generate mimic info from " + cls);
-                val faces = new ArrayList<>(Arrays.asList(cls.getInterfaces()));
-                faces.add(0, cls);
-                final FunctorInfo functor = FunctorInfo.of(info.propertyInfo.size());
-                final Function<Method, Class> findDeclared = Sneaky.function(x -> {
-                    for (Class<?> c : faces) {
-                        for (Method m : c.getDeclaredMethods()) {
-                            if (m.equals(x))
-                                return c;
+                try {
+                    val typeName = cls.getCanonicalName() + "$ASM";
+                    val info = Factory.infoCache.get(cls);
+                    if (info == null) throw new IllegalStateException("could not generate mimic info from " + cls);
+                    val faces = new ArrayList<>(Arrays.asList(cls.getInterfaces()));
+                    faces.add(0, cls);
+                    final FunctorInfo functor = FunctorInfo.of(info.propertyInfo.size());
+                    final Function<Method, Class> findDeclared = Sneaky.function(x -> {
+                        for (Class<?> c : faces) {
+                            for (Method m : c.getDeclaredMethods()) {
+                                if (m.equals(x))
+                                    return c;
+                            }
                         }
-                    }
-                    return null;
-                });
-                final AsmCreator ctor;
+                        return null;
+                    });
+                    final AsmCreator ctor;
 
-                DynamicType.Builder<?> eager = new ByteBuddy()
-                    .subclass(Base.class)
-                    .implement(cls)
-                    .name(typeName);
-                //Map.Entry<String, Tuple3<Method, Method, PropertyInfo>>
-                for (val entry : info.propertyInfo.entrySet()) {
-                    val prop = entry.getKey();
-                    val typo = entry.getValue().v3.type;
-                    eager = eager.defineField(prop, typo, Modifier.PRIVATE);
-                    Tuple2<Function<Object, Object>, BiConsumer<Object, Object>> fn = tuple(null, null);
-                    //getter
-                    {
-                        val m = entry.getValue().v1;
-                        if (m != null) {
-                            {
-                                fn = fn.map1($ -> {
-                                    try {
-                                        return (Function<Object, Object>) getter(
-                                            findDeclared.apply(m),
-                                            typo,
-                                            m.getName())
-                                            .orElseThrow(() -> new IllegalStateException("create functor for Get fail"));
-                                    } catch (Throwable e) {
-                                        throw new RuntimeException(e);
-                                    }
-                                });
+                    DynamicType.Builder<?> eager = new ByteBuddy()
+                        .subclass(Base.class)
+                        .implement(cls)
+                        .name(typeName);
+                    //Map.Entry<String, Tuple3<Method, Method, PropertyInfo>>
+                    for (val entry : info.propertyInfo.entrySet()) {
+                        val prop = entry.getKey();
+                        val typo = entry.getValue().v3.type;
+                        eager = eager.defineField(prop, typo, Modifier.PRIVATE);
+                        Tuple2<Function<Object, Object>, BiConsumer<Object, Object>> fn = tuple(null, null);
+                        //getter
+                        {
+                            val m = entry.getValue().v1;
+                            if (m != null) {
+                                {
+                                    fn = fn.map1($ -> {
+                                        try {
+                                            return (Function<Object, Object>) getter(
+                                                findDeclared.apply(m),
+                                                typo,
+                                                m.getName())
+                                                .orElseThrow(() -> new IllegalStateException("create functor for Get fail"));
+                                        } catch (Throwable e) {
+                                            throw new RuntimeException(e);
+                                        }
+                                    });
+                                }
+                                eager = eager.defineMethod(m.getName(), m.getReturnType(), Modifier.PUBLIC)
+                                    .intercept(FieldAccessor.ofField(prop));
                             }
-                            eager = eager.defineMethod(m.getName(), m.getReturnType(), Modifier.PUBLIC)
-                                .intercept(FieldAccessor.ofField(prop));
                         }
-                    }
-                    //setter
-                    {
-                        val m = entry.getValue().v2;
-                        if (m != null) {
-                            {
-                                fn = fn.map2($ -> {
-                                    try {
-                                        return (BiConsumer<Object, Object>) setter(
-                                            findDeclared.apply(m),
-                                            typo,
-                                            m.getName(),
-                                            m.getReturnType() != Void.TYPE
-                                        ).orElseThrow(() -> new IllegalStateException("create functor for Set fail"));
-                                    } catch (Throwable e) {
-                                        throw new RuntimeException(e);
-                                    }
-                                });
-                                functor.put(prop, fn);
-                            }
-                            eager = m.getReturnType() == Void.TYPE ?
-                                eager.defineMethod(m.getName(), m.getReturnType(), Modifier.PUBLIC)
-                                    .withParameters(Arrays.asList(m.getParameterTypes()))
-                                    .intercept(MethodCall
-                                        .invoke(Base.SET)
-                                        .with(prop).withArgument(0)
-                                        .andThen(FieldAccessor.ofField(prop).setsArgumentAt(0)))
-                                :
-                                eager.defineMethod(m.getName(), m.getReturnType(), Modifier.PUBLIC)
-                                    .withParameters(Arrays.asList(m.getParameterTypes()))
-                                    .intercept(
-                                        MethodCall
+                        //setter
+                        {
+                            val m = entry.getValue().v2;
+                            if (m != null) {
+                                {
+                                    fn = fn.map2($ -> {
+                                        try {
+                                            return (BiConsumer<Object, Object>) setter(
+                                                findDeclared.apply(m),
+                                                typo,
+                                                m.getName(),
+                                                m.getReturnType() != Void.TYPE
+                                            ).orElseThrow(() -> new IllegalStateException("create functor for Set fail"));
+                                        } catch (Throwable e) {
+                                            throw new RuntimeException(e);
+                                        }
+                                    });
+                                    functor.put(prop, fn);
+                                }
+                                eager = m.getReturnType() == Void.TYPE ?
+                                    eager.defineMethod(m.getName(), m.getReturnType(), Modifier.PUBLIC)
+                                        .withParameters(Arrays.asList(m.getParameterTypes()))
+                                        .intercept(MethodCall
                                             .invoke(Base.SET)
                                             .with(prop).withArgument(0)
-                                            .andThen(FieldAccessor.ofField(prop).setsArgumentAt(0))
-                                            .andThen(FixedValue.self())
-                                    );
+                                            .andThen(FieldAccessor.ofField(prop).setsArgumentAt(0)))
+                                    :
+                                    eager.defineMethod(m.getName(), m.getReturnType(), Modifier.PUBLIC)
+                                        .withParameters(Arrays.asList(m.getParameterTypes()))
+                                        .intercept(
+                                            MethodCall
+                                                .invoke(Base.SET)
+                                                .with(prop).withArgument(0)
+                                                .andThen(FieldAccessor.ofField(prop).setsArgumentAt(0))
+                                                .andThen(FixedValue.self())
+                                        );
 
-                        }
-                    }
-
-                }
-                //extra method
-                for (Method m : info.defaultMethods) {
-                    if (Factory.defaultMethodName.contains(m.getName()) || m.getName().equals("validate")) {
-                        continue;
-                    }
-                    eager = eager.defineMethod(m.getName(), m.getReturnType(), Visibility.PUBLIC)
-                        .withParameters(Arrays.asList(m.getParameterTypes()))
-                        .intercept(DefaultMethodCall.prioritize(faces));
-                }
-                eager = eager.defineMethod("validate", void.class, Visibility.PUBLIC)
-                    .intercept(SuperMethodCall.INSTANCE.andThen(DefaultMethodCall.prioritize(faces)));
-                eager = eager.defineMethod("self", cls, Visibility.PROTECTED)
-                    .intercept(FixedValue.self());
-                eager = eager.defineMethod("toString", String.class, Visibility.PUBLIC)
-                    .intercept(SuperMethodCall.INSTANCE);
-                eager = eager.defineMethod("hashCode", int.class, Visibility.PUBLIC)
-                    .intercept(SuperMethodCall.INSTANCE);
-                eager = eager.defineMethod("equals", boolean.class, Visibility.PUBLIC)
-                    .withParameters(Object.class)
-                    .intercept(SuperMethodCall.INSTANCE);
-                val prop = info.getPropertyInfo();
-                {
-                    val defaultValues = info.defaultValues;
-
-                    // val functor = functorBuilder(cls);//build functor
-                    val ctorRef = eager.make()
-                        .load(cls.getClassLoader())
-                        .getLoaded()
-                        .getConstructor(
-                            Map.class,
-                            PropertiesInfo.class,
-                            FunctorInfo.class,
-                            String.class,
-                            int.class,
-                            Validator.class);
-                    val builder = info.mapBuilder;
-                    val con = info.concurrentMode;
-                    val valid = info.validation;
-                    ctor = (m) -> {
-                        try {
-                            val x = builder.get();
-                            if (m != null && !m.isEmpty()) {
-                                x.putAll(m);
                             }
-                            if (defaultValues != null && !defaultValues.isEmpty()) {
-                                defaultValues.forEach(x::putIfAbsent);
-                            }
-                            val t = (T) ctorRef.newInstance(x, prop, functor, typeName, con, valid);
-                            val b = (Base) t;
-                            if (m != null && !m.isEmpty())
-                                b.initial();
-                            return t;
-                        } catch (InstantiationException | InvocationTargetException | IllegalAccessException e) {
-                            throw new RuntimeException(e);
                         }
-                    };
+
+                    }
+                    //extra method
+                    for (Method m : info.defaultMethods) {
+                        if (Factory.defaultMethodName.contains(m.getName()) || m.getName().equals("validate")) {
+                            continue;
+                        }
+                        eager = eager.defineMethod(m.getName(), m.getReturnType(), Visibility.PUBLIC)
+                            .withParameters(Arrays.asList(m.getParameterTypes()))
+                            .intercept(DefaultMethodCall.prioritize(faces));
+                    }
+                    eager = eager.defineMethod("validate", void.class, Visibility.PUBLIC)
+                        .intercept(SuperMethodCall.INSTANCE.andThen(DefaultMethodCall.prioritize(faces)));
+                    eager = eager.defineMethod("self", cls, Visibility.PROTECTED)
+                        .intercept(FixedValue.self());
+                    eager = eager.defineMethod("toString", String.class, Visibility.PUBLIC)
+                        .intercept(SuperMethodCall.INSTANCE);
+                    eager = eager.defineMethod("hashCode", int.class, Visibility.PUBLIC)
+                        .intercept(SuperMethodCall.INSTANCE);
+                    eager = eager.defineMethod("equals", boolean.class, Visibility.PUBLIC)
+                        .withParameters(Object.class)
+                        .intercept(SuperMethodCall.INSTANCE);
+                    val prop = info.getPropertyInfo();
+                    {
+                        val defaultValues = info.defaultValues;
+
+                        // val functor = functorBuilder(cls);//build functor
+                        val ctorRef = eager.make()
+                            .load(cls.getClassLoader())
+                            .getLoaded()
+                            .getConstructor(
+                                Map.class,
+                                PropertiesInfo.class,
+                                FunctorInfo.class,
+                                String.class,
+                                int.class,
+                                Validator.class);
+                        val builder = info.mapBuilder;
+                        val con = info.concurrentMode;
+                        val valid = info.validation;
+                        ctor = (m) -> {
+                            try {
+                                val x = builder.get();
+                                if (m != null && !m.isEmpty()) {
+                                    x.putAll(m);
+                                }
+                                if (defaultValues != null && !defaultValues.isEmpty()) {
+                                    defaultValues.forEach(x::putIfAbsent);
+                                }
+                                val t = (T) ctorRef.newInstance(x, prop, functor, typeName, con, valid);
+                                val b = (Base) t;
+                                if (m != null && !m.isEmpty())
+                                    b.initial();
+                                return t;
+                            } catch (InstantiationException | InvocationTargetException | IllegalAccessException e) {
+                                log.error("fail to build Mimic '{}' instance", cls, e);
+                                throw new RuntimeException(e);
+                            }
+                        };
+                    }
+                    return tuple(ctor, prop);
+                } catch (Exception e) {
+                    log.error("fail to build Mimic '{}' factory", cls, e);
+                    throw e;
+
                 }
-                return tuple(ctor, prop);
             }
 
             LoadingCache<Class, Factory> cache = Caffeine.newBuilder()
@@ -1319,6 +1334,7 @@ public interface Mimic {
      */
     @SuppressWarnings({"rawtypes", "unchecked", "unused"})
     interface Dao<T extends Mimic> {
+        Logger log = LoggerFactory.getLogger(Dao.class);
         /**
          * this is special case for MySQL can't use timestamp with TimeZone
          */
@@ -1633,47 +1649,53 @@ public interface Mimic {
 
                     @SneakyThrows
                     private Function<Configuration, Dao> build() {
-                        val typeName = type.getCanonicalName() + "$ASM";
-                        final List<Class> faces = new ArrayList<>(Arrays.asList(type.getInterfaces()));
-                        faces.add(0, type);
-                        val face = (List<Class<?>>) (List) faces;
-                        DynamicType.Builder<?> builder = new ByteBuddy()
-                            .subclass(Base.class)
-                            .implement(type)
-                            .name(typeName);
-                        for (Method m : type.getMethods()) {
-                            if (m.isDefault()) {
-                                builder = builder.defineMethod(m.getName(), m.getReturnType(), Visibility.PUBLIC)
-                                    .withParameters(Arrays.asList(m.getParameterTypes()))
-                                    .intercept(DefaultMethodCall.prioritize(face));
-                            } else if (baseMethods.contains(m.getName())) {
-                                builder = builder.defineMethod(m.getName(), m.getReturnType(), Visibility.PUBLIC)
-                                    .withParameters(Arrays.asList(m.getParameterTypes()))
-                                    .intercept(SuperMethodCall.INSTANCE);
-                            } else {
-                                builder = builder.defineMethod(m.getName(), m.getReturnType(), Visibility.PUBLIC)
-                                    .withParameters(Arrays.asList(m.getParameterTypes()))
-                                    .intercept(MethodCall
-                                        .invoke(FIELD)
-                                        .with(m.getName())
-                                        .withAssigner(Assigner.DEFAULT, Assigner.Typing.DYNAMIC));
+                        try {
+                            val typeName = type.getCanonicalName() + "$ASM";
+                            final List<Class> faces = new ArrayList<>(Arrays.asList(type.getInterfaces()));
+                            faces.add(0, type);
+                            val face = (List<Class<?>>) (List) faces;
+                            DynamicType.Builder<?> builder = new ByteBuddy()
+                                .subclass(Base.class)
+                                .implement(type)
+                                .name(typeName);
+                            for (Method m : type.getMethods()) {
+                                if (m.isDefault()) {
+                                    builder = builder.defineMethod(m.getName(), m.getReturnType(), Visibility.PUBLIC)
+                                        .withParameters(Arrays.asList(m.getParameterTypes()))
+                                        .intercept(DefaultMethodCall.prioritize(face));
+                                } else if (baseMethods.contains(m.getName())) {
+                                    builder = builder.defineMethod(m.getName(), m.getReturnType(), Visibility.PUBLIC)
+                                        .withParameters(Arrays.asList(m.getParameterTypes()))
+                                        .intercept(SuperMethodCall.INSTANCE);
+                                } else {
+                                    builder = builder.defineMethod(m.getName(), m.getReturnType(), Visibility.PUBLIC)
+                                        .withParameters(Arrays.asList(m.getParameterTypes()))
+                                        .intercept(MethodCall
+                                            .invoke(FIELD)
+                                            .with(m.getName())
+                                            .withAssigner(Assigner.DEFAULT, Assigner.Typing.DYNAMIC));
+                                }
                             }
+                            builder = builder.defineMethod("toString", String.class, Visibility.PUBLIC)
+                                .intercept(SuperMethodCall.INSTANCE);
+                            builder = builder.defineMethod("hashCode", int.class, Visibility.PUBLIC)
+                                .intercept(SuperMethodCall.INSTANCE);
+                            builder = builder.defineMethod("equals", boolean.class, Visibility.PUBLIC)
+                                .withParameters(Object.class)
+                                .intercept(SuperMethodCall.INSTANCE);
+                            val ctor = builder.make().load(type.getClassLoader()).getLoaded().getConstructor(Factory.class, Configuration.class);
+                            return (c) -> {
+                                try {
+                                    return (Dao) ctor.newInstance(this, c);
+                                } catch (InstantiationException | IllegalAccessException | InvocationTargetException e) {
+                                    log.error("fail to create DAO instance {}", type, e);
+                                    throw new IllegalStateException(e);
+                                }
+                            };
+                        } catch (SecurityException | NoSuchMethodException e) {
+                            log.error("fail to create DAO '{}' factory", type, e);
+                            throw e;
                         }
-                        builder = builder.defineMethod("toString", String.class, Visibility.PUBLIC)
-                            .intercept(SuperMethodCall.INSTANCE);
-                        builder = builder.defineMethod("hashCode", int.class, Visibility.PUBLIC)
-                            .intercept(SuperMethodCall.INSTANCE);
-                        builder = builder.defineMethod("equals", boolean.class, Visibility.PUBLIC)
-                            .withParameters(Object.class)
-                            .intercept(SuperMethodCall.INSTANCE);
-                        val ctor = builder.make().load(type.getClassLoader()).getLoaded().getConstructor(Factory.class, Configuration.class);
-                        return (c) -> {
-                            try {
-                                return (Dao) ctor.newInstance(this, c);
-                            } catch (InstantiationException | IllegalAccessException | InvocationTargetException e) {
-                                throw new IllegalStateException(e);
-                            }
-                        };
                     }
 
                     public Factory(Table<Record> table, Map<String, Field> fields, Class type, Class entity) {
@@ -1768,36 +1790,41 @@ public interface Mimic {
                 @SuppressWarnings("unchecked")
                 @SneakyThrows
                 static Tuple2<String, Field> buildField(Table<Record> table, Method m, Class<?> type, List<Class> faces) {
-                    val field = m.getName();
-                    var name = camelToUnderscore(field);
-                    var dataType = DefaultDataType.getDataType(lastConfig.get() == null ? SQLDialect.DEFAULT : lastConfig.get().dialect(), type, null);
+                    try {
+                        val field = m.getName();
+                        var name = camelToUnderscore(field);
+                        var dataType = DefaultDataType.getDataType(lastConfig.get() == null ? SQLDialect.DEFAULT : lastConfig.get().dialect(), type, null);
 
-                    {
-                        val ann = Mimic.internal.collectAnnotations(m, As.class, faces);
-                        if (!ann.isEmpty()) {
-                            val an = ann.get(0);
-                            if (!an.value().isEmpty()) {
-                                name = an.value();
-                            }
-                            if (an.typeHolder() != Void.TYPE && !an.typeProperty().isEmpty()) {
-                                val dt = Mimic.internal.sneakyField(an.typeHolder(), an.typeProperty());
-                                if (!(dt instanceof DataType)) {
-                                    throw new IllegalStateException("defined DataType with @As invalid");
+                        {
+                            val ann = Mimic.internal.collectAnnotations(m, As.class, faces);
+                            if (!ann.isEmpty()) {
+                                val an = ann.get(0);
+                                if (!an.value().isEmpty()) {
+                                    name = an.value();
                                 }
-                                dataType = (DataType<?>) dt;
-                            }
-                            if (an.procHolder() != Void.TYPE && !an.procProperty().isEmpty()) {
-                                val dt = Mimic.internal.sneakyField(an.procHolder(), an.procProperty());
-                                if (!(dt instanceof Function)) {
-                                    throw new IllegalStateException("defined DataType Proc with @As invalid");
+                                if (an.typeHolder() != Void.TYPE && !an.typeProperty().isEmpty()) {
+                                    val dt = Mimic.internal.sneakyField(an.typeHolder(), an.typeProperty());
+                                    if (!(dt instanceof DataType)) {
+                                        throw new IllegalStateException("defined DataType with @As invalid");
+                                    }
+                                    dataType = (DataType<?>) dt;
                                 }
-                                dataType = ((Function<DataType, DataType>) dt).apply(dataType);
+                                if (an.procHolder() != Void.TYPE && !an.procProperty().isEmpty()) {
+                                    val dt = Mimic.internal.sneakyField(an.procHolder(), an.procProperty());
+                                    if (!(dt instanceof Function)) {
+                                        throw new IllegalStateException("defined DataType Proc with @As invalid");
+                                    }
+                                    dataType = ((Function<DataType, DataType>) dt).apply(dataType);
+                                }
                             }
                         }
+                        if (dataType == null)
+                            throw new IllegalStateException("type " + type.getCanonicalName() + " can't convert to DataType!");
+                        return tuple(field, DSL.field(DSL.name(table.getName(), name), dataType));
+                    } catch (Exception e) {
+                        log.error("fail to generate DAO '{}' information", type, e);
+                        throw e;
                     }
-                    if (dataType == null)
-                        throw new IllegalStateException("type " + type.getCanonicalName() + " can't convert to DataType!");
-                    return tuple(field, DSL.field(DSL.name(table.getName(), name), dataType));
                 }
 
             }
@@ -1834,25 +1861,23 @@ public interface Mimic {
                     .build(config == null ? lastConfig.get() : config);
             }
 
-            @SuppressWarnings("unchecked")
-            static <T extends Mimic, D extends Dao<T>> D createRepoNotUpdateConfig(Class<T> type, Class<D> repo, Configuration config) {
-                setConfigurationIfNull(config);
-                //noinspection RedundantCast
-                return (D) factory(tuple((Class<Mimic>) type, (Class<Dao>) (Class) repo))
-                    .build(config == null ? lastConfig.get() : config);
-            }
-
             static void setConfiguration(Configuration config) {
-                if (config != null) {
+                if (config != null && isNotInTransaction(config)) {
+                    if (log.isDebugEnabled()) log.debug("update global Configuration to {}", config);
                     internal.lastConfig.set(config);
                 }
             }
 
-            static void setConfigurationIfNull(Configuration config) {
-                if (config != null && internal.lastConfig.get() == null) {
-                    internal.lastConfig.set(config);
+            static boolean isNotInTransaction(Configuration config) {
+                try {
+                    val status = config.dsl().parsingConnection().getAutoCommit();
+                    if (log.isDebugEnabled()) log.debug("current Configuration autocommit is {}", status);
+                    return status;
+                } catch (SQLException e) {
+                    return false;
                 }
             }
+
         }
 
         /**
@@ -1866,7 +1891,8 @@ public interface Mimic {
 
         /**
          * create new Dao instance
-         * <p>this method always set global configuration if supply one.<b>it should never be a transaction configuration</b>
+         * <p>this method will check the configuration status:
+         * <p>if found connection with AutoCommit true ( means that it's a transaction configuration ), will set it as Global Configuration, else won't.
          *
          * @param entity the Mimic type
          * @param dao    the Dao type
@@ -1876,20 +1902,6 @@ public interface Mimic {
          */
         static <T extends Mimic, D extends Dao<T>> D newInstance(@NotNull Class<T> entity, @NotNull Class<D> dao, Configuration config) {
             return internal.createRepo(entity, dao, config);
-        }
-
-        /**
-         * create new Dao instance, not set global configuration if already have one.
-         * <p>this can be used for create DAO in <B>transaction</B></p>
-         *
-         * @param entity the Mimic type
-         * @param dao    the Dao type
-         * @param config the jooq configuration, if already set once or set with {@link Dao#setConfiguration}, it could be null.
-         *               <b>Note:</b> everytime pass a configuration will override global configuration in Dao. but won't affect with Dao instance.
-         * @return a Dao Instance
-         */
-        static <T extends Mimic, D extends Dao<T>> D newInstanceConfig(@NotNull Class<T> entity, @NotNull Class<D> dao, Configuration config) {
-            return internal.createRepoNotUpdateConfig(entity, dao, config);
         }
     }
 }

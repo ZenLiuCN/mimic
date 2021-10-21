@@ -144,10 +144,6 @@ public interface Fluent extends Mimic {
         static FlueDao of(Configuration cfg) {
             return Dao.newInstance(Flue.class, FlueDao.class, cfg);
         }
-
-        static FlueDao transaction(Configuration cfg) {
-            return Dao.newInstanceConfig(Flue.class, FlueDao.class, cfg);
-        }
     }
 
 }
