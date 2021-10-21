@@ -1815,7 +1815,10 @@ public interface Mimic {
                     }
                     val table = DSL.table(DSL.name(tableName));
                     val fields = Seq.of(repo.getMethods())
-                        .filter(x -> info.propertyInfo.containsKey(x.getName()) && !Modifier.isStatic(x.getModifiers()))
+                        .filter(x ->
+                            !Modifier.isStatic(x.getModifiers()) &&
+                                !x.isDefault() &&
+                                info.propertyInfo.containsKey(x.getName()))
                         .map(f -> buildField(table, f, info.propertyInfo.get(f.getName()).v3.type, faces))
                         .toMap(Tuple2::v1, Tuple2::v2);
                     return RepoInfo.of(table, fields, repo, entity);
