@@ -24,7 +24,7 @@
     <dependencyManagement>
         <dependencies>
             <dependency>
-                <groupId>io.github.ZenLiuCn.java</groupId>
+                <groupId>io.github.zenliucn.java</groupId>
                 <artifactId>mimic</artifactId>
                 <version>1.0.0</version>
             </dependency>
@@ -63,7 +63,7 @@
     </dependencyManagement>
     <dependencies>
         <dependency>
-            <groupId>io.github.ZenLiuCn.java</groupId>
+            <groupId>io.github.zenliucn.java</groupId>
             <artifactId>mimic</artifactId>
         </dependency>
         <dependency>
