@@ -1834,8 +1834,22 @@ public interface Mimic {
                     .build(config == null ? lastConfig.get() : config);
             }
 
+            @SuppressWarnings("unchecked")
+            static <T extends Mimic, D extends Dao<T>> D createRepoNotUpdateConfig(Class<T> type, Class<D> repo, Configuration config) {
+                setConfigurationIfNull(config);
+                //noinspection RedundantCast
+                return (D) factory(tuple((Class<Mimic>) type, (Class<Dao>) (Class) repo))
+                    .build(config == null ? lastConfig.get() : config);
+            }
+
             static void setConfiguration(Configuration config) {
                 if (config != null) {
+                    internal.lastConfig.set(config);
+                }
+            }
+
+            static void setConfigurationIfNull(Configuration config) {
+                if (config != null && internal.lastConfig.get() == null) {
                     internal.lastConfig.set(config);
                 }
             }
@@ -1852,6 +1866,7 @@ public interface Mimic {
 
         /**
          * create new Dao instance
+         * <p>this method always set global configuration if supply one.<b>it should never be a transaction configuration</b>
          *
          * @param entity the Mimic type
          * @param dao    the Dao type
@@ -1863,5 +1878,18 @@ public interface Mimic {
             return internal.createRepo(entity, dao, config);
         }
 
+        /**
+         * create new Dao instance, not set global configuration if already have one.
+         * <p>this can be used for create DAO in <B>transaction</B></p>
+         *
+         * @param entity the Mimic type
+         * @param dao    the Dao type
+         * @param config the jooq configuration, if already set once or set with {@link Dao#setConfiguration}, it could be null.
+         *               <b>Note:</b> everytime pass a configuration will override global configuration in Dao. but won't affect with Dao instance.
+         * @return a Dao Instance
+         */
+        static <T extends Mimic, D extends Dao<T>> D newInstanceConfig(@NotNull Class<T> entity, @NotNull Class<D> dao, Configuration config) {
+            return internal.createRepoNotUpdateConfig(entity, dao, config);
+        }
     }
 }
