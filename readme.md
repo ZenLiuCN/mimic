@@ -133,7 +133,7 @@ Jvm runtime interface Pojo and Repository generator
     <dependency>
         <groupId>io.github.zenliucn.java</groupId>
         <artifactId>mimic</artifactId>
-        <version>1.0.2</version>
+        <version>1.0.3</version>
     </dependency>
     <!-- needed to use ByteASM mode  -->
     <dependency>
