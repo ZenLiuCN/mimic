@@ -920,6 +920,7 @@ public interface Mimic {
                 void initial() {
                     trySync(() -> {
                         for (String p : inner.get().keySet()) {
+                            if (!info.containsKey(p)) continue; //safe guarding
                             functor.get(p).v2.accept(self(), get(p));
                         }
                         changes.clear();
