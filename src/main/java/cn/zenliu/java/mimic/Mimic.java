@@ -1793,7 +1793,12 @@ public interface Mimic {
                     try {
                         val field = m.getName();
                         var name = camelToUnderscore(field);
-                        var dataType = DefaultDataType.getDataType(lastConfig.get() == null ? SQLDialect.DEFAULT : lastConfig.get().dialect(), type, null);
+                        DataType<?> dataType;
+                        try {
+                            dataType = DefaultDataType.getDataType(lastConfig.get() == null ? SQLDialect.DEFAULT : lastConfig.get().dialect(), type, null);
+                        } catch (Exception e) {
+                            dataType = null;
+                        }
 
                         {
                             val ann = Mimic.internal.collectAnnotations(m, As.class, faces);
