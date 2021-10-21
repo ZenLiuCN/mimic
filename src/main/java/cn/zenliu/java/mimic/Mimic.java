@@ -1370,11 +1370,17 @@ public interface Mimic {
             .nullable(false)
             .default_(DSL.now())
             .asConvertedDataType(Converter.of(Timestamp.class, Instant.class, Timestamp::toInstant, Timestamp::from));
-
+        String TypeInstantAsTimestamp = "InstantAsTimestamp";
+        String TypeBigIntIdentity = "BigIntIdentity";
+        String TypeInstantAsTimestampDefaultNow = "InstantAsTimestampDefaultNow";
         Function<DataType, DataType> Identity = x -> x.identity(true);
         Function<DataType, DataType> NotNull = x -> x.nullable(false);
         Function<DataType, DataType> DefaultNull = x -> x.nullable(true).default_(null);
         Function<DataType, DataType> DefaultNow = x -> x.isTimestamp() ? x.default_(DSL.now()) : x;
+        String ProcIdentity = "Identity";
+        String ProcNotNull = "NotNull";
+        String ProcDefaultNull = "DefaultNull";
+        String ProcDefaultNow = "DefaultNow";
 
         /**
          * define a Mimic is Entity,which can build a Repository;
@@ -1403,7 +1409,7 @@ public interface Mimic {
             /**
              * which class hold current field DataType
              */
-            Class<?> typeHolder() default Void.class;
+            Class<?> typeHolder() default Dao.class;
 
             /**
              * which public static field in {@link As#typeHolder()} is the {@link DataType} of current field.
@@ -1415,7 +1421,7 @@ public interface Mimic {
              * define a class holds the DataType Processor;
              * <p>see {@link Dao#Identity} as Example
              */
-            Class<?> procHolder() default Void.class;
+            Class<?> procHolder() default Dao.class;
 
             /**
              * define a static property holds the DataType Processor on {@link As#procHolder()}
