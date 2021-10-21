@@ -7,10 +7,7 @@ import org.jooq.Field;
 import org.jooq.impl.SQLDataType;
 
 import java.math.BigDecimal;
-import java.util.Arrays;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 @Mimic.Dao.Entity
 public interface Fluent extends Mimic {
@@ -136,8 +133,8 @@ public interface Fluent extends Mimic {
             return ctx().insertInto(table()).set(toDatabase(i.underlyingMap())).execute();
         }
 
-        default Flue fetchById(long id) {
-            return instance(ctx().selectFrom(table()).where(id().eq(id)).fetchOne().intoMap());
+        default Optional<Flue> fetchById(long id) {
+            return ctx().selectFrom(table()).where(id().eq(id)).fetchOptional().map(x -> instance(x.intoMap()));
         }
 
         default void deleteAll() {
@@ -146,6 +143,10 @@ public interface Fluent extends Mimic {
 
         static FlueDao of(Configuration cfg) {
             return Dao.newInstance(Flue.class, FlueDao.class, cfg);
+        }
+
+        static FlueDao transaction(Configuration cfg) {
+            return Dao.newInstanceConfig(Flue.class, FlueDao.class, cfg);
         }
     }
 

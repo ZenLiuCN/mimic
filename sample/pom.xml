@@ -26,7 +26,7 @@
             <dependency>
                 <groupId>io.github.zenliucn.java</groupId>
                 <artifactId>mimic</artifactId>
-                <version>1.0.0</version>
+                <version>1.0.1-SNAPSHOT</version>
             </dependency>
             <dependency>
                 <groupId>ch.qos.logback</groupId>

@@ -9,6 +9,8 @@ import lombok.val;
 import org.jooq.SQLDialect;
 import org.jooq.impl.DefaultConfiguration;
 
+import java.math.BigDecimal;
+
 @Slf4j
 public class Launcher {
     static final DefaultConfiguration cfg;
@@ -38,5 +40,22 @@ public class Launcher {
         log.info("insert result: {}", dao.insert(v));
         log.info("select result: {}", dao.fetchById(12L));
         log.info("select result: {}", dao.fetchByIdentity(12L));
+        try {
+            dao.ctx().transaction(c -> {
+                val trans = Fluent.FlueDao.transaction(c);
+                trans.DDL();
+                val flue = Fluent.Flue.of(null);
+                flue.id(10);
+                flue.identity(10L);
+                flue.user(BigDecimal.TEN);
+                trans.insert(flue);
+                throw new IllegalStateException("rollback");// transaction won't commit
+            });
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        val fdao = Fluent.FlueDao.of(null);
+        fdao.DDL();
+        System.out.println(fdao.fetchById(10));//here no such record.
     }
 }
