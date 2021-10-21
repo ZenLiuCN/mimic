@@ -131,9 +131,9 @@ Jvm runtime interface Pojo and Repository generator
 <dependencies>
     <!-- only requirement for just use JDK proxy mode  -->
     <dependency>
-        <groupId>io.github.ZenLiuCn.java</groupId>
+        <groupId>io.github.zenliucn.java</groupId>
         <artifactId>mimic</artifactId>
-        <version>1.0.0</version>
+        <version>1.0.1</version>
     </dependency>
     <!-- needed to use ByteASM mode  -->
     <dependency>
