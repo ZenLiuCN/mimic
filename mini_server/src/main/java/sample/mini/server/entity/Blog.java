@@ -20,14 +20,7 @@ import java.util.stream.Collectors;
  */
 @Mimic.Dao.Entity
 public interface Blog extends BlogSummary, Mimic {
-    //primitive type will have default value.
-    long id();
-
-    String author();
-
     Blog author(String val);
-
-    String title();
 
     Blog title(String val);
 
@@ -35,12 +28,7 @@ public interface Blog extends BlogSummary, Mimic {
 
     Blog content(String val);
 
-    Instant publishAt();
-
     Blog publishAt(Instant val);
-
-    //primitive type will have default value.
-    int read();
 
     Blog read(int val);
 

@@ -27,7 +27,7 @@ public class Launcher {
             .accessLog(true)
             .compress(2048)
             .route(routes -> {
-                routes.get("", (q, r) -> {
+                routes.get("/", (q, r) -> {
                     try {
                         return r.status(200)
                             .sendString(Mono.fromCallable(() ->
@@ -39,7 +39,7 @@ public class Launcher {
                             .then();
                     }
                 });
-                routes.get("{id}", (q, r) -> {
+                routes.get("/{id}", (q, r) -> {
                     try {
                         final String id = q.params().get("id");
                         if (id == null || id.isEmpty()) {
@@ -57,7 +57,7 @@ public class Launcher {
                             .then();
                     }
                 });
-                routes.post("", (q, r) -> {
+                routes.post("/", (q, r) -> {
                     try {
 
                         return r.status(200)
@@ -71,7 +71,7 @@ public class Launcher {
                             .then();
                     }
                 });
-                routes.delete("{id}", (q, r) -> {
+                routes.delete("/{id}", (q, r) -> {
                     try {
                         final String id = q.params().get("id");
                         if (id == null || id.isEmpty()) {
