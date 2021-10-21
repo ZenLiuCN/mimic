@@ -219,7 +219,7 @@
                 <extensions>true</extensions>
                 <configuration>
                     <stagingProfileId>io.github.zenliucn</stagingProfileId>
-                    <serverId>ossrh_release</serverId>
+                    <serverId>ossrh</serverId>
                     <nexusUrl>https://s01.oss.sonatype.org/</nexusUrl>
                     <autoReleaseAfterClose>true</autoReleaseAfterClose>
                 </configuration>
