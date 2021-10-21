@@ -147,6 +147,7 @@ class MimicTest {
                 val i = Mimic.newInstance(Fluent.class, null);
                 i.id(12L);
                 System.out.println(i.underlyingMap());
+                i.underlyingMap().put("id", 12);
                 assertEquals(12L, i.id());
                 i.identity(11L);
                 System.out.println(i.underlyingMap());

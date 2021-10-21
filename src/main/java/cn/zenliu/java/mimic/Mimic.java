@@ -289,7 +289,31 @@ public interface Mimic {
             }
 
             Object invokeGetter(Object v) {
-                return getterConv != null ? getterConv.apply(v) : v;
+                val x = getterConv != null ? getterConv.apply(v) : v;
+                if (x != null && type.isPrimitive() && (x.getClass() != type)) {
+                    if (Number.class.isAssignableFrom(x.getClass())) {
+                        if (char.class.equals(type)) {
+                            return (char) ((Number) x).byteValue();
+                        } else if (byte.class.equals(type)) {
+                            return ((Number) x).byteValue();
+                        } else if (short.class.equals(type)) {
+                            return ((Number) x).shortValue();
+                        } else if (int.class.equals(type)) {
+                            return ((Number) x).intValue();
+                        } else if (long.class.equals(type)) {
+                            return ((Number) x).longValue();
+                        } else if (double.class.equals(type)) {
+                            return ((Number) x).doubleValue();
+                        } else if (float.class.equals(type)) {
+                            return ((Number) x).floatValue();
+                        }
+                    } else if (boolean.class.equals(type) && Boolean.class.isAssignableFrom(x.getClass())) {
+                        return (boolean) (Boolean) x;
+                    } else {
+                        throw new IllegalStateException("unknown primitive type conversion: " + x.getClass() + " to " + type);
+                    }
+                }
+                return x;
             }
 
             void validateSetter(Object v) {
