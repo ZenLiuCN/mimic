@@ -1659,6 +1659,9 @@ public interface Mimic {
                                 .implement(type)
                                 .name(typeName);
                             for (Method m : type.getMethods()) {
+                                if (Modifier.isStatic(m.getModifiers())) {// fix skip default methods
+                                    continue;
+                                }
                                 if (m.isDefault()) {
                                     builder = builder.defineMethod(m.getName(), m.getReturnType(), Visibility.PUBLIC)
                                         .withParameters(Arrays.asList(m.getParameterTypes()))
@@ -1781,7 +1784,7 @@ public interface Mimic {
                     }
                     val table = DSL.table(DSL.name(tableName));
                     val fields = Seq.of(repo.getMethods())
-                        .filter(x -> info.propertyInfo.containsKey(x.getName()))
+                        .filter(x -> info.propertyInfo.containsKey(x.getName()) && !Modifier.isStatic(x.getModifiers()))
                         .map(f -> buildField(table, f, info.propertyInfo.get(f.getName()).v3.type, faces))
                         .toMap(Tuple2::v1, Tuple2::v2);
                     return RepoInfo.of(table, fields, repo, entity);
