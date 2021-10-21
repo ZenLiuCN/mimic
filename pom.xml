@@ -4,7 +4,7 @@
 
     <groupId>io.github.zenliucn.java</groupId>
     <artifactId>mimic</artifactId>
-    <version>1.0.2-SNAPSHOT</version>
+    <version>1.0.2</version>
     <name>mimic</name>
     <description>effective runtime interface to pojo and jooq repository generator.</description>
     <url>https://www.github.com/ZenLiuCn/mimic</url>
@@ -21,7 +21,7 @@
         <connection>scm:git:git@github.com:ZenLiuCN/mimic.git</connection>
         <url>scm:git:git@github.com:ZenLiuCN/mimic.git</url>
         <developerConnection>scm:git:git@github.com:ZenLiuCN/mimic.git</developerConnection>
-      <tag>v1.0.0</tag>
+      <tag>v1.0.2</tag>
   </scm>
     <licenses>
         <license>
