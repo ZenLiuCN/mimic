@@ -7,10 +7,7 @@ import org.jooq.impl.SQLDataType;
 import org.jooq.tools.json.JSONObject;
 
 import java.time.Instant;
-import java.util.Arrays;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Optional;
+import java.util.*;
 import java.util.stream.Collectors;
 
 /**
@@ -20,6 +17,8 @@ import java.util.stream.Collectors;
  */
 @Mimic.Dao.Entity
 public interface Blog extends BlogSummary, Mimic {
+    Blog id(long val);
+
     Blog author(String val);
 
     Blog title(String val);
@@ -39,6 +38,13 @@ public interface Blog extends BlogSummary, Mimic {
     default String outputJson() {
         final HashMap<String, Object> map = new HashMap<>(underlyingMap());
         return JSONObject.toJSONString(map);
+    }
+
+    default Map<String, Object> summaryMap() {
+        final HashMap<String, Object> map = new HashMap<>(underlyingMap());
+        map.remove("removed");
+        map.remove("content");
+        return map;
     }
 
 
@@ -75,7 +81,9 @@ public interface Blog extends BlogSummary, Mimic {
         @As(typeProperty = TypeInstantAsTimestampDefaultNow)
         Field<Instant> publishAt();
 
-        @As(procProperty = ProcNotNull)
+        DataType<Integer> IntTypeWithDefault = SQLDataType.INTEGER.defaultValue(0).nullable(false);
+
+        @As(typeHolder = BlogDao.class, typeProperty = "IntTypeWithDefault")
         Field<Integer> read();
 
         DataType<Boolean> BooleanType = SQLDataType.BOOLEAN.defaultValue(false).nullable(false);
@@ -101,7 +109,6 @@ public interface Blog extends BlogSummary, Mimic {
                 id(),
                 author(),
                 title(),
-                content(),
                 publishAt(),
                 read()
             );
@@ -126,12 +133,13 @@ public interface Blog extends BlogSummary, Mimic {
                 ).execute();
         }
 
-        default List<BlogSummary> list() {
+        default List<Blog> list() {
             return ctx().select(summaryFields())
                 .from(table())
                 .where(removed().isFalse())
                 .orderBy(publishAt().desc())
-                .fetchStreamInto(BlogSummary.class)//use jooq delegate function
+                .fetchStream()//use jooq delegate function
+                .map(x -> instance(x.intoMap()))
                 .collect(Collectors.toList());
         }
 

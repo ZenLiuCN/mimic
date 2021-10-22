@@ -2,7 +2,7 @@ package sample.mini.server.entity;
 
 import java.time.Instant;
 
-interface BlogSummary {
+public interface BlogSummary {
     long id();
 
     String author();
