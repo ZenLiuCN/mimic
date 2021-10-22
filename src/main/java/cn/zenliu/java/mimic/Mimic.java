@@ -945,7 +945,12 @@ public interface Mimic {
                     trySync(() -> {
                         for (String p : inner.get().keySet()) {
                             if (!info.containsKey(p)) continue; //safe guarding
-                            functor.get(p).v2.accept(self(), get(p));
+                            val info = functor.get(p);
+                            if (info != null && info.v2 != null) {
+                                info.v2.accept(self(), get(p));
+                            } else {
+                                log.debug("ignore initial for field {}, cause of no setter exists", p);
+                            }
                         }
                         changes.clear();
                     });
