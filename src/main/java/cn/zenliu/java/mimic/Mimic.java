@@ -1916,8 +1916,8 @@ public interface Mimic {
             }
 
             static boolean isNotInTransaction(Configuration config) {
-                try {
-                    val status = config.dsl().parsingConnection().getAutoCommit();
+                try (val conn = config.dsl().parsingConnection()) {
+                    val status = conn.getAutoCommit();
                     if (log.isDebugEnabled()) log.debug("current Configuration autocommit is {}", status);
                     return status;
                 } catch (SQLException e) {
