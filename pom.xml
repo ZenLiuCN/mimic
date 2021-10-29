@@ -1,10 +1,11 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
 
     <groupId>io.github.zenliucn.java</groupId>
     <artifactId>mimic</artifactId>
-    <version>1.0.6-SNAPSHOT</version>
+    <version>1.0.5</version>
     <name>mimic</name>
     <description>effective runtime interface to pojo and jooq repository generator.</description>
     <url>https://www.github.com/ZenLiuCn/mimic</url>
@@ -21,8 +22,7 @@
         <connection>scm:git:git@github.com:ZenLiuCN/mimic.git</connection>
         <url>scm:git:git@github.com:ZenLiuCN/mimic.git</url>
         <developerConnection>scm:git:git@github.com:ZenLiuCN/mimic.git</developerConnection>
-        <tag>v1.0.5</tag>
-  </scm>
+    </scm>
     <licenses>
         <license>
             <name>GNU LESSER GENERAL PUBLIC LICENSE, Version 2.1</name>
@@ -207,14 +207,12 @@
                         </goals>
                     </execution>
                 </executions>
-                <!--          <configuration>
-                              <gpgArguments>
-                                  <arg>&#45;&#45;pinentry-mode</arg>
-                                  <arg>loopback</arg>
-                              </gpgArguments>
-                              &lt;!&ndash;<keyname>${gpg.keyname}</keyname>
-                              <passphrase>${gpg.passphrase}</passphrase>&ndash;&gt;
-                          </configuration>-->
+                <configuration>
+                    <gpgArguments>
+                        <arg>--pinentry-mode</arg>
+                        <arg>loopback</arg>
+                    </gpgArguments>
+                </configuration>
             </plugin>
             <plugin>
                 <groupId>org.sonatype.plugins</groupId>
