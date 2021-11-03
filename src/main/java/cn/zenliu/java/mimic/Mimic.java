@@ -26,6 +26,7 @@ import net.bytebuddy.description.modifier.Visibility;
 import net.bytebuddy.dynamic.DynamicType;
 import net.bytebuddy.implementation.*;
 import net.bytebuddy.implementation.bytecode.assign.Assigner;
+import org.jetbrains.annotations.ApiStatus;
 import org.jetbrains.annotations.NotNull;
 import org.jooq.Field;
 import org.jooq.*;
@@ -1466,8 +1467,15 @@ public interface Mimic {
         Map<String, Object> toEntity(Map<String, Object> data);
 
         /**
+         * this method used to fetch internal Configuration
+         * <p><b>NOTE:</b> DO NOT OVERRIDE
+         */
+        @ApiStatus.AvailableSince("1.0.5")
+        Configuration configuration();
+
+        /**
          * this method returns all fields in database order
-         * <p><b>NOTE:</b> MUST OVERRIDE
+         * <p><b>NOTE:</b> MAYBE OVERRIDE
          */
         List<Field<?>> allFields();
 
@@ -1520,6 +1528,7 @@ public interface Mimic {
                 final class Factory implements DaoFactory {
                     final Table<Record> table;
                     final Map<String, Field> fields;
+                    final List<Field<?>> all;
                     final Class type;
                     final AtomicReference<Constructor<MethodHandles.Lookup>> constructor = new AtomicReference<>();
                     final Class entity;
@@ -1530,9 +1539,10 @@ public interface Mimic {
                         this.fields = fields;
                         this.type = type;
                         this.entity = entity;
-                        this.fieldToProperty = fields == null ? null : seq(fields)
+                        this.fieldToProperty = seq(fields)
                             .map(x -> x.map2(Field::getName))
                             .map(Tuple2::swap).toMap(Tuple2::v1, Tuple2::v2);
+                        this.all = new ArrayList<>(fields.values());
                     }
 
                     public Map<String, Object> toProperty(Map<String, Object> dm) {
@@ -1564,6 +1574,8 @@ public interface Mimic {
                                     return table;
                                 case "ctx": //special method
                                     return config.dsl();
+                                case "configuration": //special method
+                                    return config;
                                 case "instance": //special method
                                     //noinspection unchecked
                                     return Mimic.newInstance(entity, args[0] == null ? null : toProperty((Map<String, Object>) args[0]));
@@ -1588,6 +1600,8 @@ public interface Mimic {
                                         } catch (ReflectiveOperationException e) {
                                             throw new IllegalStateException("Cannot invoke default method", e);
                                         }
+                                    } else if (m.getParameterCount() == 0 && method.equals("allFields")) {
+                                        return all;
                                     } else return fields.get(method);
                             }
                         });
@@ -1602,7 +1616,8 @@ public interface Mimic {
 
                 static DaoFactory factory(Tuple2<Class, Class> type) {
                     val info = DaoFactory.repositoryInfoCache.get(type);
-                    if (info == null) throw new IllegalStateException("could not generate repository info for " + type);
+                    if (info == null || info.fields == null)
+                        throw new IllegalStateException("could not generate repository info for " + type);
                     return new Factory(info.table, info.fields, info.dao, info.entity);
                 }
             }
@@ -1616,6 +1631,7 @@ public interface Mimic {
                     final Map<String, String> fieldToProperty;
                     final Function<Configuration, Dao> ctor;
                     final static Method FIELD;
+                    final List<Field<?>> all;
 
                     static {
                         try {
@@ -1625,7 +1641,14 @@ public interface Mimic {
                         }
                     }
 
-                    static final List<String> baseMethods = Arrays.asList("table", "ctx", "instance", "toDatabase", "toEntity");
+                    static final List<String> baseMethods = Arrays.asList("table",
+                        "ctx",
+                        "instance",
+                        "toDatabase",
+                        "toEntity",
+                        "configuration",
+                        "allFields"
+                    );
 
                     public abstract class Base<T extends Mimic> implements Dao<T> {
                         final Configuration config;
@@ -1670,6 +1693,16 @@ public interface Mimic {
                         }
 
                         @Override
+                        public Configuration configuration() {
+                            return config;
+                        }
+
+                        @Override
+                        public List<Field<?>> allFields() {
+                            return all;
+                        }
+
+                        @Override
                         public int hashCode() {
                             return table.hashCode() * 31 + fields.hashCode();
                         }
@@ -1699,10 +1732,11 @@ public interface Mimic {
                                     continue;
                                 }
                                 if (m.isDefault()) {
+                                    //for override allFields this should hit
                                     builder = builder.defineMethod(m.getName(), m.getReturnType(), Visibility.PUBLIC)
                                         .withParameters(Arrays.asList(m.getParameterTypes()))
                                         .intercept(DefaultMethodCall.prioritize(face));
-                                } else if (baseMethods.contains(m.getName())) {
+                                } else if (baseMethods.contains(m.getName())) { //else allFields hit this
                                     builder = builder.defineMethod(m.getName(), m.getReturnType(), Visibility.PUBLIC)
                                         .withParameters(Arrays.asList(m.getParameterTypes()))
                                         .intercept(SuperMethodCall.INSTANCE);
@@ -1746,6 +1780,7 @@ public interface Mimic {
                             .map(x -> x.map2(Field::getName))
                             .map(Tuple2::swap).toMap(Tuple2::v1, Tuple2::v2);
                         this.ctor = build();
+                        this.all = new ArrayList<>(fields.values());
                     }
 
                     public Map<String, Object> toProperty(Map<String, Object> dm) {
