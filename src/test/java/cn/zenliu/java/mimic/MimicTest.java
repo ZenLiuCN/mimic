@@ -226,6 +226,39 @@ class MimicTest {
         }
 
         @Test
+        void proxyDaoConfiguration() {
+            val cfg = new DefaultConfiguration();
+            cfg.setSQLDialect(SQLDialect.H2);
+            val hc = new HikariConfig();
+            hc.setJdbcUrl("jdbc:h2:mem:test");
+            cfg.setDataSource(new HikariDataSource(hc));
+            {
+                val dao1 = Mimic.Dao.newInstance(Fluent.class, FluentDao.class, cfg);
+                val daoOrdered = Mimic.Dao.newInstance(Flue.class, FlueDao.class, cfg);
+                assertEquals(cfg, dao1.configuration());
+                assertEquals(cfg, daoOrdered.configuration());
+            }
+
+        }
+
+        @Test
+        void asmDaoConfiguration() {
+            Mimic.Dao.ByteASM.enable();
+            val cfg = new DefaultConfiguration();
+            cfg.setSQLDialect(SQLDialect.H2);
+            val hc = new HikariConfig();
+            hc.setJdbcUrl("jdbc:h2:mem:test");
+            cfg.setDataSource(new HikariDataSource(hc));
+            {
+                val dao1 = Mimic.Dao.newInstance(Fluent.class, FluentDao.class, cfg);
+                val daoOrdered = Mimic.Dao.newInstance(Flue.class, FlueDao.class, cfg);
+                assertEquals(cfg, dao1.configuration());
+                assertEquals(cfg, daoOrdered.configuration());
+            }
+
+        }
+
+        @Test
         void asmDaoAllFields() {
             Mimic.Dao.ByteASM.enable();
             val cfg = new DefaultConfiguration();

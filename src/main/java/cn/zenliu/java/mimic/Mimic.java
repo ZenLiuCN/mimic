@@ -1947,7 +1947,7 @@ public interface Mimic {
 
             static void setConfiguration(Configuration config) {
                 if (config != null && isNotInTransaction(config)) {
-                    if (log.isDebugEnabled()) log.debug("update global Configuration to {}", config);
+                    if (log.isTraceEnabled()) log.trace("update global Configuration to {}", config);
                     internal.lastConfig.set(config);
                 }
             }
@@ -1955,7 +1955,7 @@ public interface Mimic {
             static boolean isNotInTransaction(Configuration config) {
                 try (val conn = config.dsl().parsingConnection()) {
                     val status = conn.getAutoCommit();
-                    if (log.isDebugEnabled()) log.debug("current Configuration autocommit is {}", status);
+                    if (log.isTraceEnabled()) log.trace("current Configuration autocommit is {}", status);
                     return status;
                 } catch (SQLException e) {
                     return false;
