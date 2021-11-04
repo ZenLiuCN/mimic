@@ -1534,7 +1534,7 @@ public interface Mimic {
                     final Class entity;
                     final Map<String, String> fieldToProperty;
 
-                    Factory(Table<Record> table, Map<String, Field> fields, Class type, Class entity) {
+                    Factory(Table<Record> table, Map<String, Field> fields, List<Field<?>> all, Class type, Class entity) {
                         this.table = table;
                         this.fields = fields;
                         this.type = type;
@@ -1542,7 +1542,7 @@ public interface Mimic {
                         this.fieldToProperty = seq(fields)
                             .map(x -> x.map2(Field::getName))
                             .map(Tuple2::swap).toMap(Tuple2::v1, Tuple2::v2);
-                        this.all = new ArrayList<>(fields.values());
+                        this.all = all;
                     }
 
                     public Map<String, Object> toProperty(Map<String, Object> dm) {
@@ -1618,7 +1618,7 @@ public interface Mimic {
                     val info = DaoFactory.repositoryInfoCache.get(type);
                     if (info == null || info.fields == null)
                         throw new IllegalStateException("could not generate repository info for " + type);
-                    return new Factory(info.table, info.fields, info.dao, info.entity);
+                    return new Factory(info.table, info.fields, info.all, info.dao, info.entity);
                 }
             }
 
@@ -1771,7 +1771,7 @@ public interface Mimic {
                         }
                     }
 
-                    public Factory(Table<Record> table, Map<String, Field> fields, Class type, Class entity) {
+                    public Factory(Table<Record> table, Map<String, Field> fields, List<Field<?>> all, Class type, Class entity) {
                         this.table = table;
                         this.fields = fields;
                         this.type = type;
@@ -1780,7 +1780,7 @@ public interface Mimic {
                             .map(x -> x.map2(Field::getName))
                             .map(Tuple2::swap).toMap(Tuple2::v1, Tuple2::v2);
                         this.ctor = build();
-                        this.all = new ArrayList<>(fields.values());
+                        this.all = all;
                     }
 
                     public Map<String, Object> toProperty(Map<String, Object> dm) {
@@ -1811,7 +1811,7 @@ public interface Mimic {
                 static DaoFactory factory(Tuple2<Class, Class> type) {
                     val info = DaoFactory.repositoryInfoCache.get(type);
                     if (info == null) throw new IllegalStateException("could not generate repository info for " + type);
-                    return new Factory(info.table, info.fields, info.dao, info.entity);
+                    return new Factory(info.table, info.fields, info.all, info.dao, info.entity);
                 }
             }
 
@@ -1831,6 +1831,7 @@ public interface Mimic {
                 final class RepoInfo {
                     final Table<Record> table;
                     final Map<String, Field> fields;
+                    final List<Field<?>> all;
                     final Class<?> dao;
                     final Class<?> entity;
                 }
@@ -1854,14 +1855,15 @@ public interface Mimic {
                         tableName = camelToUnderscore(entity.getSimpleName());
                     }
                     val table = DSL.table(DSL.name(tableName));
-                    val fields = Seq.of(repo.getMethods())
+                    val tuples = Seq.of(repo.getMethods())
                         .filter(x ->
                             !Modifier.isStatic(x.getModifiers()) &&
                                 !x.isDefault() &&
                                 info.propertyInfo.containsKey(x.getName()))
-                        .map(f -> buildField(table, f, info.propertyInfo.get(f.getName()).v3.type, faces))
-                        .toMap(Tuple2::v1, Tuple2::v2);
-                    return RepoInfo.of(table, fields, repo, entity);
+                        .map(f -> buildField(table, f, info.propertyInfo.get(f.getName()).v3.type, faces)).toList();
+                    val fields = seq(tuples).toMap(Tuple2::v1, Tuple2::v2);
+                    List<Field<?>> all = (List<Field<?>>) (List) seq(tuples).map(x -> x.v2).toList();
+                    return RepoInfo.of(table, fields, all, repo, entity);
                 }
 
                 @SuppressWarnings("unchecked")

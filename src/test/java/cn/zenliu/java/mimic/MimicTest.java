@@ -8,7 +8,6 @@ import org.jooq.Field;
 import org.jooq.SQLDialect;
 import org.jooq.impl.DefaultConfiguration;
 import org.jooq.impl.SQLDataType;
-import org.jooq.lambda.Seq;
 import org.junit.jupiter.api.Test;
 
 import java.math.BigDecimal;
@@ -16,6 +15,7 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 
+import static org.jooq.lambda.Seq.seq;
 import static org.junit.jupiter.api.Assertions.*;
 
 class MimicTest {
@@ -75,10 +75,6 @@ class MimicTest {
         @As(typeHolder = SQLDataType.class, typeProperty = "VARCHAR")
         Field<String> idOfUser();
 
-        @Override
-        default List<Field<?>> allFields() {
-            return Arrays.asList(id(), identity(), idOfUser());
-        }
 
         default int insert(Fluent i) {
             return ctx().insertInto(table()).set(toDatabase(i.underlyingMap())).execute();
@@ -214,6 +210,38 @@ class MimicTest {
 
     static class MimicTestWithDao {
         @Test
+        void proxyDaoAllFields() {
+            val cfg = new DefaultConfiguration();
+            cfg.setSQLDialect(SQLDialect.H2);
+            val hc = new HikariConfig();
+            hc.setJdbcUrl("jdbc:h2:mem:test");
+            cfg.setDataSource(new HikariDataSource(hc));
+            {
+                val dao1 = Mimic.Dao.newInstance(Fluent.class, FluentDao.class, cfg);
+                val daoOrdered = Mimic.Dao.newInstance(Flue.class, FlueDao.class, cfg);
+                assertEquals("identityidid_of_user", seq(dao1.allFields()).map(Field::getName).toString(""));
+                assertEquals("ididentityid_of_useruser", seq(daoOrdered.allFields()).map(Field::getName).toString(""));
+            }
+
+        }
+
+        @Test
+        void asmDaoAllFields() {
+            Mimic.Dao.ByteASM.enable();
+            val cfg = new DefaultConfiguration();
+            cfg.setSQLDialect(SQLDialect.H2);
+            val hc = new HikariConfig();
+            hc.setJdbcUrl("jdbc:h2:mem:test");
+            cfg.setDataSource(new HikariDataSource(hc));
+            {
+                val dao1 = Mimic.Dao.newInstance(Fluent.class, FluentDao.class, cfg);
+                val daoOrdered = Mimic.Dao.newInstance(Flue.class, FlueDao.class, cfg);
+                assertEquals("identityidid_of_user", seq(dao1.allFields()).map(Field::getName).toString(""));
+                assertEquals("ididentityid_of_useruser", seq(daoOrdered.allFields()).map(Field::getName).toString(""));
+            }
+        }
+
+        @Test
         void proxyDao() {
             val cfg = new DefaultConfiguration();
             cfg.setSQLDialect(SQLDialect.H2);
@@ -228,12 +256,12 @@ class MimicTest {
                 i.id(12L);
                 i.identity(12L);
                 i.idOfUser(24L);
-                assertEquals(Seq.seq(Arrays.asList("id", "identity", "idOfUser")).sorted().toString(""), Seq.seq(i.underlyingChangedProperties()).sorted().toString(""));
+                assertEquals(seq(Arrays.asList("id", "identity", "idOfUser")).sorted().toString(""), seq(i.underlyingChangedProperties()).sorted().toString(""));
                 dao.insert(i);
                 val i2 = dao.fetchById(12L);
                 System.out.println(i2);
                 i2.identity(8L);
-                assertEquals("identity", Seq.seq(i2.underlyingChangedProperties()).sorted().toString(""));
+                assertEquals("identity", seq(i2.underlyingChangedProperties()).sorted().toString(""));
                 System.out.println(dao.update(i2));
                 val r = dao.fetchById(12L);
                 assertEquals(12L, r.id());
@@ -273,12 +301,12 @@ class MimicTest {
                 i.id(12L);
                 i.identity(12L);
                 i.idOfUser(24L);
-                assertEquals(Seq.seq(Arrays.asList("id", "identity", "idOfUser")).sorted().toString(""), Seq.seq(i.underlyingChangedProperties()).sorted().toString(""));
+                assertEquals(seq(Arrays.asList("id", "identity", "idOfUser")).sorted().toString(""), seq(i.underlyingChangedProperties()).sorted().toString(""));
                 dao.insert(i);
                 val i2 = dao.fetchById(12L);
                 System.out.println(i2);
                 i2.identity(8L);
-                assertEquals("identity", Seq.seq(i2.underlyingChangedProperties()).sorted().toString(""));
+                assertEquals("identity", seq(i2.underlyingChangedProperties()).sorted().toString(""));
                 System.out.println(dao.update(i2));
                 val r = dao.fetchById(12L);
                 assertEquals(12L, r.id());
@@ -302,7 +330,6 @@ class MimicTest {
             }
         }
 
-
         @Test
         void asmAsmDao() {
             Mimic.ByteASM.enable();
@@ -321,12 +348,12 @@ class MimicTest {
                 i.id(12L);
                 i.identity(12L);
                 i.idOfUser(24L);
-                assertEquals(Seq.seq(Arrays.asList("id", "identity", "idOfUser")).sorted().toString(""), Seq.seq(i.underlyingChangedProperties()).sorted().toString(""));
+                assertEquals(seq(Arrays.asList("id", "identity", "idOfUser")).sorted().toString(""), seq(i.underlyingChangedProperties()).sorted().toString(""));
                 dao.insert(i);
                 val i2 = dao.fetchById(12L);
                 System.out.println(i2);
                 i2.identity(8L);
-                assertEquals("identity", Seq.seq(i2.underlyingChangedProperties()).sorted().toString(""));
+                assertEquals("identity", seq(i2.underlyingChangedProperties()).sorted().toString(""));
                 System.out.println(dao.update(i2));
                 val r = dao.fetchById(12L);
                 assertEquals(12L, r.id());
