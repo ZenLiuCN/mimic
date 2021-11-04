@@ -133,7 +133,7 @@ Jvm runtime interface Pojo and Repository generator
     <dependency>
         <groupId>io.github.zenliucn.java</groupId>
         <artifactId>mimic</artifactId>
-        <version>1.0.3</version>
+        <version>${mimic.version}</version>
     </dependency>
     <!-- needed to use ByteASM mode  -->
     <dependency>
@@ -221,8 +221,8 @@ interface FluentDao extends Mimic.Dao<Fluent> {
     @As(typeHolder = SQLDataType.class, typeProperty = "VARCHAR")
     Field<String> idOfUser();
 
-    //must override to supply all fields
-    @Override
+    //optional override to supply all fields, defualt maybe not with supposed order
+    @Override 
     default List<Field<?>> allFields() {
         return Arrays.asList(id(), identity(), idOfUser());
     }
