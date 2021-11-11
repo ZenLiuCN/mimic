@@ -24,6 +24,7 @@ import lombok.var;
 import net.bytebuddy.ByteBuddy;
 import net.bytebuddy.description.modifier.Visibility;
 import net.bytebuddy.dynamic.DynamicType;
+import net.bytebuddy.dynamic.loading.ClassLoadingStrategy;
 import net.bytebuddy.implementation.*;
 import net.bytebuddy.implementation.bytecode.assign.Assigner;
 import org.jetbrains.annotations.ApiStatus;
@@ -1284,7 +1285,7 @@ public interface Mimic {
 
                         // val functor = functorBuilder(cls);//build functor
                         val ctorRef = eager.make()
-                            .load(cls.getClassLoader())
+                            .load(cls.getClassLoader(), ClassLoadingStrategy.Default.INJECTION)
                             .getLoaded()
                             .getConstructor(
                                 Map.class,
@@ -1478,6 +1479,63 @@ public interface Mimic {
          * <p><b>NOTE:</b> MAYBE OVERRIDE
          */
         List<Field<?>> allFields();
+
+        /**
+         * default method to find all into a Seq
+         */
+        @ApiStatus.AvailableSince("1.0.7")
+        default Seq<T> queryAll() {
+            return Seq.seq(ctx().select(allFields()).from(table()).stream())
+                .map(x -> instance(x.intoMap()));
+        }
+
+        /**
+         * default method to find with condition into a Seq
+         */
+        @ApiStatus.AvailableSince("1.0.7")
+        default Seq<T> queryConditional(Condition condition) {
+            return Seq.seq(ctx().select(allFields())
+                    .from(table())
+                    .where(condition)
+                    .stream())
+                .map(x -> instance(x.intoMap()));
+        }
+
+        /**
+         * insert value into
+         */
+        @ApiStatus.AvailableSince("1.0.7")
+        default int inertInto(T value) {
+            return ctx().insertInto(table())
+                .set(value.underlyingMap())
+                .execute();
+        }
+
+        /**
+         * update value with condition
+         */
+        @ApiStatus.AvailableSince("1.0.7")
+        default int updateWith(T value, Condition condition) {
+            val changes = value.underlyingChangedProperties();
+            val map = seq(value.underlyingMap()).filter(x -> changes.contains(x.v1)).toMap(Tuple2::v1, Tuple2::v2);
+            return ctx().update(table())
+                .set(map)
+                .where(condition)
+                .execute();
+        }
+
+        /**
+         * default method to find with condition ordered into a Seq
+         */
+        @ApiStatus.AvailableSince("1.0.7")
+        default Seq<T> queryConditional(Condition condition, OrderField<?> orderBy) {
+            return Seq.seq(ctx().select(allFields())
+                    .from(table())
+                    .where(condition)
+                    .orderBy(orderBy)
+                    .stream())
+                .map(x -> instance(x.intoMap()));
+        }
 
         /**
          * a light weight DDL for createTableIfNotExists
@@ -1756,7 +1814,7 @@ public interface Mimic {
                             builder = builder.defineMethod("equals", boolean.class, Visibility.PUBLIC)
                                 .withParameters(Object.class)
                                 .intercept(SuperMethodCall.INSTANCE);
-                            val ctor = builder.make().load(type.getClassLoader()).getLoaded().getConstructor(Factory.class, Configuration.class);
+                            val ctor = builder.make().load(type.getClassLoader(), ClassLoadingStrategy.Default.INJECTION).getLoaded().getConstructor(Factory.class, Configuration.class);
                             return (c) -> {
                                 try {
                                     return (Dao) ctor.newInstance(this, c);
