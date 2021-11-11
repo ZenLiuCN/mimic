@@ -58,6 +58,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.*;
+import java.util.stream.Stream;
 
 import static cn.zenliu.java.mimic.Config.cacheSize;
 import static org.jooq.lambda.Seq.seq;
@@ -1484,20 +1485,36 @@ public interface Mimic {
          * default method to find all into a Seq
          */
         @ApiStatus.AvailableSince("1.0.7")
-        default Seq<T> queryAll() {
-            return Seq.seq(ctx().select(allFields()).from(table()).stream())
+        default Stream<T> queryAll() {
+            return ctx()
+                .select(allFields())
+                .from(table())
+                .fetchStream()
                 .map(x -> instance(x.intoMap()));
         }
 
         /**
-         * default method to find with condition into a Seq
+         * default method to find with condition into a Stream
          */
         @ApiStatus.AvailableSince("1.0.7")
-        default Seq<T> queryConditional(Condition condition) {
-            return Seq.seq(ctx().select(allFields())
-                    .from(table())
-                    .where(condition)
-                    .stream())
+        default Stream<T> queryConditional(Condition condition) {
+            return ctx().select(allFields())
+                .from(table())
+                .where(condition)
+                .fetchStream()
+                .map(x -> instance(x.intoMap()));
+        }
+
+        /**
+         * default method to find with conditionOperator into a Stream
+         */
+        @ApiStatus.AvailableSince("1.0.7")
+        default Stream<T> queryConditional(@NotNull UnaryOperator<Select<?>> conditionOperator) {
+            return conditionOperator.apply(
+                    ctx()
+                        .select(allFields())
+                        .from(table()))
+                .fetchStream()
                 .map(x -> instance(x.intoMap()));
         }
 
@@ -1517,25 +1534,15 @@ public interface Mimic {
         @ApiStatus.AvailableSince("1.0.7")
         default int updateWith(T value, Condition condition) {
             val changes = value.underlyingChangedProperties();
-            val map = seq(value.underlyingMap()).filter(x -> changes.contains(x.v1)).toMap(Tuple2::v1, Tuple2::v2);
+            val map = seq(value.underlyingMap())
+                .filter(x -> changes.contains(x.v1))
+                .toMap(Tuple2::v1, Tuple2::v2);
             return ctx().update(table())
                 .set(map)
                 .where(condition)
                 .execute();
         }
 
-        /**
-         * default method to find with condition ordered into a Seq
-         */
-        @ApiStatus.AvailableSince("1.0.7")
-        default Seq<T> queryConditional(Condition condition, OrderField<?> orderBy) {
-            return Seq.seq(ctx().select(allFields())
-                    .from(table())
-                    .where(condition)
-                    .orderBy(orderBy)
-                    .stream())
-                .map(x -> instance(x.intoMap()));
-        }
 
         /**
          * a light weight DDL for createTableIfNotExists
