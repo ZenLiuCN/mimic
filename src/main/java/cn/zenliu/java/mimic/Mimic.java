@@ -1261,14 +1261,14 @@ public interface Mimic {
 
                     }
                     //extra method
-                    for (Method m : info.defaultMethods) {
+       /*             for (Method m : info.defaultMethods) {
                         if (Factory.defaultMethodName.contains(m.getName()) || m.getName().equals("validate")) {
                             continue;
                         }
                         eager = eager.defineMethod(m.getName(), m.getReturnType(), Visibility.PUBLIC)
                             .withParameters(Arrays.asList(m.getParameterTypes()))
                             .intercept(DefaultMethodCall.prioritize(faces));
-                    }
+                    }*/
                     eager = eager.defineMethod("validate", void.class, Visibility.PUBLIC)
                         .intercept(SuperMethodCall.INSTANCE.andThen(DefaultMethodCall.prioritize(faces)));
                     eager = eager.defineMethod("self", cls, Visibility.PROTECTED)
@@ -1494,26 +1494,15 @@ public interface Mimic {
         }
 
         /**
-         * default method to find with condition into a Stream
-         */
-        @ApiStatus.AvailableSince("1.0.7")
-        default Stream<T> queryConditional(Condition condition) {
-            return ctx().select(allFields())
-                .from(table())
-                .where(condition)
-                .fetchStream()
-                .map(x -> instance(x.intoMap()));
-        }
-
-        /**
          * default method to find with conditionOperator into a Stream
          */
         @ApiStatus.AvailableSince("1.0.7")
-        default Stream<T> queryConditional(@NotNull UnaryOperator<Select<?>> conditionOperator) {
+        default Stream<T> queryConditional(@NotNull Function<SelectJoinStep<?>, ResultQuery<?>> conditionOperator) {
             return conditionOperator.apply(
                     ctx()
                         .select(allFields())
-                        .from(table()))
+                        .from(table())
+                )
                 .fetchStream()
                 .map(x -> instance(x.intoMap()));
         }
@@ -1524,7 +1513,7 @@ public interface Mimic {
         @ApiStatus.AvailableSince("1.0.7")
         default int inertInto(T value) {
             return ctx().insertInto(table())
-                .set(value.underlyingMap())
+                .set(toDatabase(value.underlyingMap()))
                 .execute();
         }
 
@@ -1538,7 +1527,7 @@ public interface Mimic {
                 .filter(x -> changes.contains(x.v1))
                 .toMap(Tuple2::v1, Tuple2::v2);
             return ctx().update(table())
-                .set(map)
+                .set(toDatabase(map))
                 .where(condition)
                 .execute();
         }
@@ -1793,14 +1782,11 @@ public interface Mimic {
                                 .implement(type)
                                 .name(typeName);
                             for (Method m : type.getMethods()) {
-                                if (Modifier.isStatic(m.getModifiers())) {// fix skip default methods
+                                if (Modifier.isStatic(m.getModifiers()) || m.isDefault()) {// fix skip default methods
                                     continue;
-                                }
-                                if (m.isDefault()) {
+//                                } else if (m.isDefault()) {
+                                    //default methods not needed to be defined
                                     //for override allFields this should hit
-                                    builder = builder.defineMethod(m.getName(), m.getReturnType(), Visibility.PUBLIC)
-                                        .withParameters(Arrays.asList(m.getParameterTypes()))
-                                        .intercept(DefaultMethodCall.prioritize(face));
                                 } else if (baseMethods.contains(m.getName())) { //else allFields hit this
                                     builder = builder.defineMethod(m.getName(), m.getReturnType(), Visibility.PUBLIC)
                                         .withParameters(Arrays.asList(m.getParameterTypes()))
@@ -1821,7 +1807,9 @@ public interface Mimic {
                             builder = builder.defineMethod("equals", boolean.class, Visibility.PUBLIC)
                                 .withParameters(Object.class)
                                 .intercept(SuperMethodCall.INSTANCE);
-                            val ctor = builder.make().load(type.getClassLoader(), ClassLoadingStrategy.Default.INJECTION).getLoaded().getConstructor(Factory.class, Configuration.class);
+                            val ctor = builder.make().load(type.getClassLoader(), ClassLoadingStrategy.Default.INJECTION)
+                                .getLoaded()
+                                .getConstructor(Factory.class, Configuration.class);
                             return (c) -> {
                                 try {
                                     return (Dao) ctor.newInstance(this, c);
