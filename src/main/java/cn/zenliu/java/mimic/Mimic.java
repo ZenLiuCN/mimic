@@ -44,10 +44,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.lang.annotation.*;
-import java.lang.invoke.CallSite;
-import java.lang.invoke.LambdaMetafactory;
-import java.lang.invoke.MethodHandles;
-import java.lang.invoke.MethodType;
+import java.lang.invoke.*;
 import java.lang.reflect.*;
 import java.math.BigDecimal;
 import java.sql.SQLException;
@@ -100,6 +97,7 @@ import static org.jooq.lambda.tuple.Tuple.tuple;
 public interface Mimic {
     Logger log = LoggerFactory.getLogger(Mimic.class);
 
+    //region Definitions
     /**
      * method to fetch internal Map,
      * <p><b>Note:</b>Never TO OVERRIDDEN
@@ -122,6 +120,7 @@ public interface Mimic {
     default void validate() throws IllegalStateException {
 
     }
+    //endregion
 
     interface Validate {
         BiConsumer<String, Object> noop = (p, x) -> {
@@ -131,6 +130,7 @@ public interface Mimic {
         };
     }
 
+    //region Annotations
     /**
      * define a Mimic type use JavaBean GetterSetter protocol
      */
@@ -226,6 +226,7 @@ public interface Mimic {
         String property() default "noop";
 
     }
+    //endregion
 
     /**
      * use Byte ASM Mode for Mimic
@@ -233,7 +234,7 @@ public interface Mimic {
     interface ByteASM {
 
         static void enable() {
-            internal.factory.set(internal.Asm.cache::get);
+            internal.factory.set(internal.AsmFactory.cache::get);
         }
     }
 
@@ -242,10 +243,9 @@ public interface Mimic {
      */
     interface DynamicProxy {
         static void enable() {
-            internal.factory.set(internal.DynamicProxy.cache::get);
+            internal.factory.set(internal.ProxyFactory.cache::get);
         }
     }
-
 
     @SuppressWarnings("rawtypes")
     final class internal {
@@ -291,6 +291,7 @@ public interface Mimic {
                 return setterConv != null ? setterConv.apply(v) : v;
             }
 
+            @SuppressWarnings("RedundantCast")
             Object invokeGetter(Object v) {
                 val x = getterConv != null ? getterConv.apply(v) : v;
                 if (x != null && type.isPrimitive() && (x.getClass() != type)) {
@@ -369,21 +370,6 @@ public interface Mimic {
         }
         //endregion
 
-        static <T extends AccessibleObject> T accessible(T accessible) {
-            if (accessible == null) {
-                return null;
-            }
-            if (accessible instanceof Member) {
-                Member member = (Member) accessible;
-                if (Modifier.isPublic(member.getModifiers()) &&
-                    Modifier.isPublic(member.getDeclaringClass().getModifiers())) {
-                    return accessible;
-                }
-            }
-            if (!accessible.isAccessible())
-                accessible.setAccessible(true);
-            return accessible;
-        }
 
         //FieldExtract,getPredicate,setPredicate,getNameExtract,setNameExtract
         static NamingStrategy nameStrategy(Class<?> cls) {
@@ -395,23 +381,23 @@ public interface Mimic {
             {
                 val ann = cls.getAnnotationsByType(JavaBean.class);
                 if (ann.length == 0) {
-                    getPred = fluentGetter;
-                    setPred = fluentSetter;
-                    getName = fluentGetterName;
-                    setName = fluentSetterName;
+                    getPred = Util.fluentGetter;
+                    setPred = Util.fluentSetter;
+                    getName = Util.fluentGetterName;
+                    setName = Util.fluentSetterName;
                     extract = Function.identity();
                 } else {
                     val an = ann[0];
                     if (an.value()) {
-                        getPred = mixGetter;
-                        setPred = mixSetter;
-                        getName = mixGetterName;
-                        setName = mixSetterName;
+                        getPred = Util.mixGetter;
+                        setPred = Util.mixSetter;
+                        getName = Util.mixGetterName;
+                        setName = Util.mixSetterName;
                     } else {
-                        getPred = beanGetter;
-                        setPred = beanSetter;
-                        getName = beanGetterName;
-                        setName = beanSetterName;
+                        getPred = Util.beanGetter;
+                        setPred = Util.beanSetter;
+                        getName = Util.beanGetterName;
+                        setName = Util.beanSetterName;
                     }
                     extract = internal::commonExtract;
                 }
@@ -419,29 +405,7 @@ public interface Mimic {
             return NamingStrategy.of(getPred, setPred, getName, setName, extract);
         }
 
-        //region Predicate
-        final static Predicate<Method> isPublicNoneDefault = x -> !x.isDefault() && !Modifier.isStatic(x.getModifiers()) && Modifier.isPublic(x.getModifiers());
-        final static Predicate<Method> isBeanGetter = x -> (x.getParameterCount() == 0 &&
-            (x.getName().startsWith("get") && x.getReturnType() != Void.TYPE ||
-                (x.getReturnType() == boolean.class && x.getName().startsWith("is")))
-        );
-        final static Predicate<Method> isBeanSetter = x -> (x.getParameterCount() == 1 &&
-            x.getName().startsWith("set") &&
-            (x.getReturnType() == Void.TYPE || x.getReturnType() == x.getDeclaringClass()));
 
-        final static Predicate<Method> isFluentSetter = x -> (
-            x.getParameterCount() == 1 &&
-                (x.getReturnType() == Void.TYPE || x.getReturnType() == x.getDeclaringClass())
-        );
-        final static Predicate<Method> isFluentGetter = x -> (x.getParameterCount() == 0 && x.getReturnType() != Void.TYPE);
-        final static Predicate<Method> fluentGetter = isPublicNoneDefault.and(isFluentGetter);
-        final static Predicate<Method> fluentSetter = isPublicNoneDefault.and(isFluentSetter);
-        final static Predicate<Method> beanSetter = isPublicNoneDefault.and(isBeanSetter);
-        final static Predicate<Method> beanGetter = isPublicNoneDefault.and(isBeanGetter);
-        final static Predicate<Method> mixGetter = isPublicNoneDefault.and(isFluentGetter.or(isBeanGetter));
-        final static Predicate<Method> mixSetter = isPublicNoneDefault.and(isFluentSetter.or(isBeanSetter));
-
-        //endregion
         //region Name Converter
         static String lowerFist(String val) {
             char[] c = val.toCharArray();
@@ -449,12 +413,6 @@ public interface Mimic {
             return new String(c);
         }
 
-        final static Function<Method, String> fluentGetterName = Method::getName;
-        final static Function<Method, String> fluentSetterName = Method::getName;
-        final static Function<Method, String> beanGetterName = x -> lowerFist(x.getName().startsWith("is") ? x.getName().substring(2) : x.getName().substring(3));
-        final static Function<Method, String> beanSetterName = x -> lowerFist(x.getName().substring(3));
-        final static Function<Method, String> mixSetterName = x -> x.getName().startsWith("set") ? lowerFist(x.getName().substring(3)) : x.getName();
-        final static Function<Method, String> mixGetterName = x -> x.getName().startsWith("is") || x.getName().startsWith("get") ? beanGetterName.apply(x) : x.getName();
 
         //endregion
         public static String commonExtract(String x) {
@@ -465,18 +423,6 @@ public interface Mimic {
         static final Consumer<Object> hold = x -> {
         };
 
-        static <T extends Annotation> List<T> collectAnnotations(Method m, Class<T> an, List<Class> faces) {
-            val collected = new ArrayList<T>();
-            for (Class cls : faces) {
-                try {
-                    @SuppressWarnings("unchecked") val fn = cls.getDeclaredMethod(m.getName(), m.getParameterTypes());
-                    collected.addAll(Arrays.asList(fn.getAnnotationsByType(an)));
-                } catch (NoSuchMethodException ignored) {
-
-                }
-            }
-            return collected;
-        }
 
         //(method,nameExtractor)->(propertyName,(GetterProcessor,SetterProcessor,ParamValidate,propertyType,ObjectValidation))
         @SuppressWarnings({"ConstantConditions", "unchecked"})
@@ -487,7 +433,7 @@ public interface Mimic {
             Consumer<Map<String, Object>>>>
         compute(Method m, Function<Method, String> n) {
             val type = m.getDeclaringClass();
-            final List<Class> faces = new ArrayList<>(Arrays.asList(type.getInterfaces()));
+            final List<Class<?>> faces = new ArrayList<>(Arrays.asList(type.getInterfaces()));
             faces.add(0, type);
             val name = n.apply(m);
             val ret = m.getReturnType();
@@ -502,7 +448,7 @@ public interface Mimic {
             boolean conv = false;
             //Array Annotation
             {
-                val ann = collectAnnotations(m, Array.class, faces);
+                val ann = Util.collectAnnotations(m, Array.class, faces);
                 if (!ann.isEmpty()) {
                     conv = true;
                     val typ = ann.get(0).value();
@@ -561,12 +507,12 @@ public interface Mimic {
             //common Annotation Validate
             {
                 val exists = new HashSet<Tuple2<Class, String>>();
-                val va = Seq.seq(collectAnnotations(m, Validation.class, faces))
+                val va = Seq.seq(Util.collectAnnotations(m, Validation.class, faces))
                     .map(x -> {
                         val id = tuple((Class) x.value(), x.property());
                         if (!exists.contains(id)) {
                             exists.add(id);
-                            val field = sneakyField(x.value(), x.property());
+                            val field = Util.fetchStaticFieldValue(x.value(), x.property());
                             if (!(field instanceof BiConsumer))
                                 throw new IllegalStateException("validator is not a Consumer");
                             return (BiConsumer<String, Object>) field;
@@ -615,18 +561,13 @@ public interface Mimic {
             return tuple(name, processor.concat(pre).concat(prop).concat(valid));
         }
 
-        @SneakyThrows
-        static Object sneakyField(Class cls, String field) {
-            return accessible(cls.getField(field)).get(null);
-        }
 
         //(asString)=>(FromString,ToString)
         @SuppressWarnings("unchecked")
-        @SneakyThrows
         static Tuple2<Function<Object, Object>, Function<Object, Object>> extract(AsString an) {
             val holder = an.value();
-            val frm = (Function<Object, Object>) accessible(holder.getField(an.fromProperty())).get(null);
-            val tr = (Function<Object, Object>) accessible(holder.getField(an.toProperty())).get(null);
+            val frm = (Function<Object, Object>) Util.fetchStaticFieldValue(holder, an.fromProperty());
+            val tr = (Function<Object, Object>) Util.fetchStaticFieldValue(holder, an.toProperty());
             return tuple(frm, tr);
         }
 
@@ -737,8 +678,8 @@ public interface Mimic {
         }
         //endregion
 
-        interface DynamicProxy {
-            final class ProxyFactory implements Factory {
+        interface ProxyFactory {
+            final class DynamicProxyFactory implements Factory {
                 final AtomicReference<Constructor<MethodHandles.Lookup>> constructor = new AtomicReference<>();
                 final Supplier<Map<String, Object>> mapBuilder;
                 final Class cls;
@@ -753,13 +694,13 @@ public interface Mimic {
                     return prop;
                 }
 
-                ProxyFactory(Supplier<Map<String, Object>> mapBuilder,
-                             Class cls,
-                             Function<String, String> extract,
-                             Validator validation,
-                             PropertiesInfo prop,
-                             int concurrent,
-                             Map<String, Object> defaultValues) {
+                DynamicProxyFactory(Supplier<Map<String, Object>> mapBuilder,
+                                    Class cls,
+                                    Function<String, String> extract,
+                                    Validator validation,
+                                    PropertiesInfo prop,
+                                    int concurrent,
+                                    Map<String, Object> defaultValues) {
                     this.mapBuilder = mapBuilder;
                     this.cls = cls;
                     this.extract = extract;
@@ -795,18 +736,13 @@ public interface Mimic {
                             default:
                                 if (m.isDefault()) {
                                     try {
-                                        if (constructor.get() == null)
-                                            constructor.set(accessible(MethodHandles.Lookup.class
-                                                .getDeclaredConstructor(Class.class, int.class)));
                                         Class<?> declaringClass = m.getDeclaringClass();
                                         if (method.equals("validate") && m.getReturnType() == Void.TYPE) {
                                             if (validation != null) {
                                                 validation.accept(map);
                                             }
                                         }
-                                        return constructor.get()
-                                            .newInstance(declaringClass, MethodHandles.Lookup.PRIVATE)
-                                            .unreflectSpecial(m, declaringClass)
+                                        return Util.fetchMethod(declaringClass, m)
                                             .bindTo(result[0])
                                             .invokeWithArguments(args);
                                     } catch (ReflectiveOperationException e) {
@@ -862,7 +798,7 @@ public interface Mimic {
                 }
                 val info = Factory.infoCache.get(cls);
                 if (info == null) throw new IllegalStateException("could not generate mimic info from " + cls);
-                return new ProxyFactory(
+                return new DynamicProxyFactory(
                     info.mapBuilder,
                     cls,
                     info.strategy.extract,
@@ -875,11 +811,10 @@ public interface Mimic {
             LoadingCache<Class, Factory> cache = Caffeine.newBuilder()
                 .softValues()
                 .maximumSize(cacheSize.get())
-                .build(DynamicProxy::build);
+                .build(internal.ProxyFactory::build);
         }
 
-
-        public interface Asm {
+        public interface AsmFactory {
             @FunctionalInterface
             interface AsmCreator extends Function<Map, Object> {
             }
@@ -1052,12 +987,12 @@ public interface Mimic {
             }
 
             @SuppressWarnings("rawtypes")
-            final class AsmFactory implements Factory {
+            final class ByteBuddyFactory implements Factory {
                 final PropertiesInfo prop;
                 final AsmCreator eager;
                 final Class type;
 
-                AsmFactory(PropertiesInfo prop, AsmCreator eager, Class type) {
+                ByteBuddyFactory(PropertiesInfo prop, AsmCreator eager, Class type) {
                     this.prop = prop;
                     this.eager = eager;
                     this.type = type;
@@ -1075,96 +1010,6 @@ public interface Mimic {
 
             }
 
-            //region Functor
-            static <T> Optional<CallSite> generateCallSite(
-                final Class<T> lambdaType,
-                final String invokeName,
-                final MethodType samMethodType,
-                final Class<?> targetClass,
-                final String methodName,
-                final MethodType virtualMethodType,
-                final MethodType instanceMethodType
-            ) {
-                final MethodHandles.Lookup lookup = MethodHandles.lookup();
-                try {
-                    final CallSite metaFactory = LambdaMetafactory.metafactory(
-                        lookup,
-                        invokeName,
-                        MethodType.methodType(lambdaType),
-                        samMethodType,
-                        lookup.findVirtual(targetClass, methodName, virtualMethodType),
-                        instanceMethodType);
-                    return Optional.of(metaFactory);
-                } catch (Throwable ex) {
-                    log.error("error to generate call site from {} named as {}", targetClass, methodName, ex);
-                    return Optional.empty();
-                }
-            }
-
-            @SuppressWarnings("unchecked")
-            static <O, V> Optional<Function<O, V>> getter(
-                final @NotNull Class<O> target,
-                final @NotNull Class<V> valueType,
-                final @NotNull String getterName
-            ) {
-                return generateCallSite(
-                    Function.class,
-                    "apply",
-                    MethodType.methodType(Object.class, Object.class),
-                    target,
-                    getterName,
-                    MethodType.methodType(valueType),
-                    MethodType.methodType(valueType, target)
-                ).map(a -> {
-                    try {
-                        return (Function<O, V>) a.getTarget().invokeExact();
-                    } catch (Throwable ex) {
-                        log.error("error to generate getter lambda from {} named as {}", target, getterName, ex);
-                        return null;
-                    }
-                });
-            }
-
-            @SuppressWarnings("unchecked")
-            static <O, V> Optional<BiConsumer<O, V>> setter(
-                final @NotNull Class<O> target,
-                final @NotNull Class<V> valueType,
-                final @NotNull String setterName,
-                final boolean chain
-            ) {
-                return (
-                    chain ?
-                        generateCallSite(
-                            BiFunction.class,
-                            "apply",
-                            MethodType.methodType(Object.class, Object.class, Object.class),
-                            target,
-                            setterName,
-                            MethodType.methodType(target, valueType),
-                            MethodType.methodType(target, target, valueType)
-                        )
-                        : generateCallSite(
-                        BiConsumer.class,
-                        "accept",
-                        MethodType.methodType(void.class, Object.class, Object.class),
-                        target,
-                        setterName,
-                        MethodType.methodType(void.class, valueType),
-                        MethodType.methodType(void.class, target, valueType)
-                    )).map(a -> {
-                    try {
-                        if (chain) {
-                            val fn = (BiFunction<O, V, O>) a.getTarget().invokeExact();
-                            return fn::apply;
-                        }
-                        return (BiConsumer<O, V>) a.getTarget().invokeExact();
-                    } catch (Throwable ex) {
-                        log.error("error to generate BeanSetter Functor from {} named as {} ", target, setterName, ex);
-                        return null;
-                    }
-                });
-            }
-            //endregion
 
             //cls->((lazyCtor,eagerCtor),properties)
             @SuppressWarnings("unchecked")
@@ -1203,17 +1048,10 @@ public interface Mimic {
                             val m = entry.getValue().v1;
                             if (m != null) {
                                 {
-                                    fn = fn.map1($ -> {
-                                        try {
-                                            return (Function<Object, Object>) getter(
-                                                findDeclared.apply(m),
-                                                typo,
-                                                m.getName())
-                                                .orElseThrow(() -> new IllegalStateException("create functor for Get fail"));
-                                        } catch (Throwable e) {
-                                            throw new RuntimeException(e);
-                                        }
-                                    });
+                                    fn = fn.map1($ -> (Function<Object, Object>) Util.Functor.getter(
+                                        findDeclared.apply(m),
+                                        typo,
+                                        m.getName()));
                                 }
                                 eager = eager.defineMethod(m.getName(), m.getReturnType(), Modifier.PUBLIC)
                                     .intercept(FieldAccessor.ofField(prop));
@@ -1224,18 +1062,12 @@ public interface Mimic {
                             val m = entry.getValue().v2;
                             if (m != null) {
                                 {
-                                    fn = fn.map2($ -> {
-                                        try {
-                                            return (BiConsumer<Object, Object>) setter(
-                                                findDeclared.apply(m),
-                                                typo,
-                                                m.getName(),
-                                                m.getReturnType() != Void.TYPE
-                                            ).orElseThrow(() -> new IllegalStateException("create functor for Set fail"));
-                                        } catch (Throwable e) {
-                                            throw new RuntimeException(e);
-                                        }
-                                    });
+                                    fn = fn.map2($ -> (BiConsumer<Object, Object>) Util.Functor.setter(
+                                        findDeclared.apply(m),
+                                        typo,
+                                        m.getName(),
+                                        m.getReturnType() != Void.TYPE
+                                    ));
                                     functor.put(prop, fn);
                                 }
                                 eager = m.getReturnType() == Void.TYPE ?
@@ -1258,17 +1090,9 @@ public interface Mimic {
 
                             }
                         }
-
                     }
+                    //ignore default methods for no needs to generate
                     //extra method
-       /*             for (Method m : info.defaultMethods) {
-                        if (Factory.defaultMethodName.contains(m.getName()) || m.getName().equals("validate")) {
-                            continue;
-                        }
-                        eager = eager.defineMethod(m.getName(), m.getReturnType(), Visibility.PUBLIC)
-                            .withParameters(Arrays.asList(m.getParameterTypes()))
-                            .intercept(DefaultMethodCall.prioritize(faces));
-                    }*/
                     eager = eager.defineMethod("validate", void.class, Visibility.PUBLIC)
                         .intercept(SuperMethodCall.INSTANCE.andThen(DefaultMethodCall.prioritize(faces)));
                     eager = eager.defineMethod("self", cls, Visibility.PROTECTED)
@@ -1329,24 +1153,24 @@ public interface Mimic {
             LoadingCache<Class, Factory> cache = Caffeine.newBuilder()
                 .softValues()
                 .maximumSize(cacheSize.get())
-                .build(Asm::build);
+                .build(internal.AsmFactory::build);
 
             static Factory build(Class<? extends Mimic> cls) {
                 if (!Mimic.class.isAssignableFrom(cls)) {
                     throw new IllegalStateException(cls + " is not a Mimic");
                 }
                 final Tuple2<AsmCreator, PropertiesInfo> t = buildInfo(cls);
-                return new AsmFactory(t.v2, t.v1, cls);
+                return new ByteBuddyFactory(t.v2, t.v1, cls);
             }
         }
 
 
-        static final AtomicReference<Function<Class, Factory>> factory = new AtomicReference<>(DynamicProxy.cache::get);
+        static final AtomicReference<Function<Class, Factory>> factory = new AtomicReference<>();
 
 
         @SuppressWarnings({"rawtypes"})
         static Mimic instance(Class type, Map<String, Object> map) {
-            return factory.get().apply(type).build(map);
+            return Objects.requireNonNull(factory.get(), "not configurer Mimic Factory mode ").apply(type).build(map);
         }
 
     }
@@ -1365,9 +1189,10 @@ public interface Mimic {
      * <p>  {@link Mimic} used by Dao must directly annotate with {@link Dao.Entity}.
      * <p>  {@link Mimic} will enable Property Change Recording, which store changed Property Name in {@link Mimic#underlyingChangedProperties()}.
      */
-    @SuppressWarnings({"rawtypes", "unchecked", "unused"})
+    @SuppressWarnings({"rawtypes", "unchecked", "unused", "UnusedReturnValue"})
     interface Dao<T extends Mimic> {
-        Logger log = LoggerFactory.getLogger(Dao.class);
+
+        //region Units
         /**
          * this is special case for MySQL can't use timestamp with TimeZone
          */
@@ -1389,6 +1214,9 @@ public interface Mimic {
         String ProcNotNull = "NotNull";
         String ProcDefaultNull = "DefaultNull";
         String ProcDefaultNow = "DefaultNow";
+        //endregion
+
+        //region Definitions
 
         /**
          * define a Mimic is Entity,which can build a Repository;
@@ -1552,6 +1380,7 @@ public interface Mimic {
         default CreateTableColumnStep setConstants(CreateTableColumnStep columns) {
             return columns;
         }
+        //endregion
 
         /**
          * use Byte ASM Mode for DAO
@@ -1578,13 +1407,12 @@ public interface Mimic {
             }
 
             interface DynamicFactory {
-                @SuppressWarnings("DuplicatedCode")
                 final class Factory implements DaoFactory {
                     final Table<Record> table;
                     final Map<String, Field> fields;
                     final List<Field<?>> all;
                     final Class type;
-                    final AtomicReference<Constructor<MethodHandles.Lookup>> constructor = new AtomicReference<>();
+
                     final Class entity;
                     final Map<String, String> fieldToProperty;
 
@@ -1642,13 +1470,7 @@ public interface Mimic {
                                 default:
                                     if (m.isDefault()) {
                                         try {
-                                            if (constructor.get() == null)
-                                                constructor.set(Mimic.internal.accessible(MethodHandles.Lookup.class
-                                                    .getDeclaredConstructor(Class.class, int.class)));
-                                            Class<?> declaringClass = m.getDeclaringClass();
-                                            return constructor.get()
-                                                .newInstance(declaringClass, MethodHandles.Lookup.PRIVATE)
-                                                .unreflectSpecial(m, declaringClass)
+                                            return Util.fetchMethod(m.getDeclaringClass(), m)
                                                 .bindTo(result[0])
                                                 .invokeWithArguments(args);
                                         } catch (ReflectiveOperationException e) {
@@ -1684,12 +1506,12 @@ public interface Mimic {
                     final Class entity;
                     final Map<String, String> fieldToProperty;
                     final Function<Configuration, Dao> ctor;
-                    final static Method FIELD;
+                    final static Method FIELD_METHOD;
                     final List<Field<?>> all;
 
                     static {
                         try {
-                            FIELD = Base.class.getDeclaredMethod("getField", String.class);
+                            FIELD_METHOD = Base.class.getDeclaredMethod("getField", String.class);
                         } catch (NoSuchMethodException e) {
                             throw new IllegalStateException(e);
                         }
@@ -1784,10 +1606,8 @@ public interface Mimic {
                             for (Method m : type.getMethods()) {
                                 if (Modifier.isStatic(m.getModifiers()) || m.isDefault()) {// fix skip default methods
                                     continue;
-//                                } else if (m.isDefault()) {
-                                    //default methods not needed to be defined
-                                    //for override allFields this should hit
-                                } else if (baseMethods.contains(m.getName())) { //else allFields hit this
+                                }
+                                if (baseMethods.contains(m.getName())) { //else allFields hit this
                                     builder = builder.defineMethod(m.getName(), m.getReturnType(), Visibility.PUBLIC)
                                         .withParameters(Arrays.asList(m.getParameterTypes()))
                                         .intercept(SuperMethodCall.INSTANCE);
@@ -1795,7 +1615,7 @@ public interface Mimic {
                                     builder = builder.defineMethod(m.getName(), m.getReturnType(), Visibility.PUBLIC)
                                         .withParameters(Arrays.asList(m.getParameterTypes()))
                                         .intercept(MethodCall
-                                            .invoke(FIELD)
+                                            .invoke(FIELD_METHOD)
                                             .with(m.getName())
                                             .withAssigner(Assigner.DEFAULT, Assigner.Typing.DYNAMIC));
                                 }
@@ -1897,7 +1717,7 @@ public interface Mimic {
                     }
                     final Class<?> entity = type.v1;
                     final Class<?> repo = type.v2;
-                    final List<Class> faces = new ArrayList<>(Arrays.asList(repo.getInterfaces()));
+                    final List<Class<?>> faces = new ArrayList<>(Arrays.asList(repo.getInterfaces()));
                     faces.add(0, repo);
                     val ann = entity.getAnnotationsByType(Entity.class);
                     if (ann.length == 0) {
@@ -1905,7 +1725,7 @@ public interface Mimic {
                     }
                     var tableName = ann[0].value();
                     if (tableName.isEmpty()) {
-                        tableName = camelToUnderscore(entity.getSimpleName());
+                        tableName = Util.Case.classToTable.apply(entity.getSimpleName());
                     }
                     val table = DSL.table(DSL.name(tableName));
                     val tuples = Seq.of(repo.getMethods())
@@ -1919,35 +1739,34 @@ public interface Mimic {
                     return RepoInfo.of(table, fields, all, repo, entity);
                 }
 
-                @SuppressWarnings("unchecked")
                 @SneakyThrows
-                static Tuple2<String, Field> buildField(Table<Record> table, Method m, Class<?> type, List<Class> faces) {
+                static Tuple2<String, Field> buildField(Table<Record> table, Method m, Class<?> type, List<Class<?>> faces) {
                     try {
                         val field = m.getName();
-                        var name = camelToUnderscore(field);
+                        var name = Util.Case.propertyToTable.apply(field);
                         DataType<?> dataType;
+                        //guess
                         try {
                             dataType = DefaultDataType.getDataType(lastConfig.get() == null ? SQLDialect.DEFAULT : lastConfig.get().dialect(), type, null);
                         } catch (Exception e) {
                             dataType = null;
                         }
-
                         {
-                            val ann = Mimic.internal.collectAnnotations(m, As.class, faces);
+                            val ann = Util.collectAnnotations(m, As.class, faces);
                             if (!ann.isEmpty()) {
                                 val an = ann.get(0);
                                 if (!an.value().isEmpty()) {
                                     name = an.value();
                                 }
                                 if (an.typeHolder() != Void.TYPE && !an.typeProperty().isEmpty()) {
-                                    val dt = Mimic.internal.sneakyField(an.typeHolder(), an.typeProperty());
+                                    val dt = Util.fetchStaticFieldValue(an.typeHolder(), an.typeProperty());
                                     if (!(dt instanceof DataType)) {
                                         throw new IllegalStateException("defined DataType with @As invalid");
                                     }
                                     dataType = (DataType<?>) dt;
                                 }
                                 if (an.procHolder() != Void.TYPE && !an.procProperty().isEmpty()) {
-                                    val dt = Mimic.internal.sneakyField(an.procHolder(), an.procProperty());
+                                    val dt = Util.fetchStaticFieldValue(an.procHolder(), an.procProperty());
                                     if (!(dt instanceof Function)) {
                                         throw new IllegalStateException("defined DataType Proc with @As invalid");
                                     }
@@ -1966,26 +1785,10 @@ public interface Mimic {
 
             }
 
-            final static AtomicReference<Function<Tuple2<Class, Class>, DaoFactory>> cache = new AtomicReference<>(DynamicFactory.cache::get);
-
-            static String camelToUnderscore(String camel) {
-                val chars = camel.toCharArray();
-                val join = new StringJoiner("_");
-                var last = 0;
-                for (int i = 0; i < chars.length; i++) {
-                    if (Character.isUpperCase(chars[i])) {
-                        chars[i] = Character.toLowerCase(chars[i]);
-                        if (i != 0)
-                            join.add(new String(chars, last, i - last));
-                        last = i;
-                    }
-                }
-                join.add(new String(chars, last, chars.length - last));
-                return join.toString();
-            }
+            final static AtomicReference<Function<Tuple2<Class, Class>, DaoFactory>> cache = new AtomicReference<>();
 
             static DaoFactory factory(Tuple2<Class<Mimic>, Class<Dao>> type) {
-                return cache.get().apply((Tuple2<Class, Class>) (Tuple2) type);
+                return Objects.requireNonNull(cache.get(), "not configurer DAO factory mode ").apply((Tuple2<Class, Class>) (Tuple2) type);
             }
 
             final static AtomicReference<Configuration> lastConfig = new AtomicReference<>();
@@ -2040,5 +1843,309 @@ public interface Mimic {
         static <T extends Mimic, D extends Dao<T>> D newInstance(@NotNull Class<T> entity, @NotNull Class<D> dao, Configuration config) {
             return internal.createRepo(entity, dao, config);
         }
+    }
+
+    @ApiStatus.AvailableSince("1.1.2")
+    interface Util {
+        /**
+         * Lambda runtime wrapping for Getters And Setters
+         */
+        interface Functor {
+            @SneakyThrows
+            static <T> CallSite generateCallSite(
+                final Class<T> lambdaType,
+                final String invokeName,
+                final MethodType samMethodType,
+                final Class<?> targetClass,
+                final String methodName,
+                final MethodType virtualMethodType,
+                final MethodType instanceMethodType
+            ) {
+                final MethodHandles.Lookup lookup = MethodHandles.lookup();
+                try {
+                    return LambdaMetafactory.metafactory(
+                        lookup,
+                        invokeName,
+                        MethodType.methodType(lambdaType),
+                        samMethodType,
+                        lookup.findVirtual(targetClass, methodName, virtualMethodType),
+                        instanceMethodType);
+                } catch (Throwable ex) {
+                    log.error("error to generate call site from {} named as {}", targetClass, methodName, ex);
+                    throw ex;
+                }
+            }
+
+            @SneakyThrows
+            @SuppressWarnings("unchecked")
+            static <O, V> Function<O, V> getter(
+                final @NotNull Class<O> target,
+                final @NotNull Class<V> valueType,
+                final @NotNull String getterName
+            ) {
+                val site = generateCallSite(
+                    Function.class,
+                    "apply",
+                    MethodType.methodType(Object.class, Object.class),
+                    target,
+                    getterName,
+                    MethodType.methodType(valueType),
+                    MethodType.methodType(valueType, target)
+                );
+                try {
+                    return (Function<O, V>) site.getTarget().invokeExact();
+                } catch (Throwable ex) {
+                    log.error("error to generate getter lambda from {} named as {}", target, getterName, ex);
+                    throw ex;
+                }
+
+            }
+
+            @SneakyThrows
+            @SuppressWarnings("unchecked")
+            static <O, V> BiConsumer<O, V> setter(
+                final @NotNull Class<O> target,
+                final @NotNull Class<V> valueType,
+                final @NotNull String setterName,
+                final boolean chain
+            ) {
+                val site = chain ?
+                    generateCallSite(
+                        BiFunction.class,
+                        "apply",
+                        MethodType.methodType(Object.class, Object.class, Object.class),
+                        target,
+                        setterName,
+                        MethodType.methodType(target, valueType),
+                        MethodType.methodType(target, target, valueType)
+                    )
+                    : generateCallSite(
+                    BiConsumer.class,
+                    "accept",
+                    MethodType.methodType(void.class, Object.class, Object.class),
+                    target,
+                    setterName,
+                    MethodType.methodType(void.class, valueType),
+                    MethodType.methodType(void.class, target, valueType)
+                );
+                try {
+                    if (chain) {
+                        val fn = (BiFunction<O, V, O>) site.getTarget().invokeExact();
+                        return fn::apply;
+                    }
+                    return (BiConsumer<O, V>) site.getTarget().invokeExact();
+                } catch (Throwable ex) {
+                    log.error("error to generate BeanSetter Functor from {} named as {} ", target, setterName, ex);
+                    throw ex;
+                }
+            }
+        }
+
+        /**
+         * The major version of current JVM, eg: 8 for 1.8.x, 17 for jdk 17.x.x
+         */
+        static int jvmMajorVersion() {
+            var v = System.getProperty("java.version");
+            if (v.startsWith("1.")) {
+                return Integer.parseInt(v.substring(2, 3));
+            } else return Integer.parseInt(v.substring(0, v.indexOf(".")));
+        }
+
+        int jvmMajorVersion = jvmMajorVersion();
+
+        /**
+         * set AccessibleObject to accessible
+         */
+        static <T extends AccessibleObject> T accessible(T accessible) {
+            if (accessible == null) {
+                return null;
+            }
+            if (accessible instanceof Member) {
+                Member member = (Member) accessible;
+                if (Modifier.isPublic(member.getModifiers()) &&
+                    Modifier.isPublic(member.getDeclaringClass().getModifiers())) {
+                    return accessible;
+                }
+            }
+            if (!accessible.isAccessible())
+                accessible.setAccessible(true);
+            return accessible;
+        }
+
+        /**
+         * MethodHandles Lookup Constructor
+         */
+        AtomicReference<Constructor<MethodHandles.Lookup>> constructor = new AtomicReference<>();
+
+        @SuppressWarnings("JavaReflectionMemberAccess")
+        @SneakyThrows
+        static MethodHandle fetchMethod(Class<?> declaringClass, Method m) {
+            if (constructor.get() == null) {
+                constructor.set(
+                    accessible(
+                        jvmMajorVersion < 14 ? //checked in OpenJDK repository changed in
+                            // https://github.com/openjdk/jdk16/releases/tag/jdk-14-ga
+                            MethodHandles.Lookup.class.getDeclaredConstructor(Class.class, int.class)
+                            : MethodHandles.Lookup.class.getDeclaredConstructor(Class.class, Class.class, int.class)
+                    )
+                );
+            }
+            return (jvmMajorVersion < 14 ?
+                constructor.get()
+                    .newInstance(declaringClass, MethodHandles.Lookup.PRIVATE)
+                : constructor.get()
+                .newInstance(declaringClass, null, MethodHandles.Lookup.PRIVATE))
+                .unreflectSpecial(m, declaringClass);
+        }
+
+        @SneakyThrows
+        static Object fetchStaticFieldValue(Class<?> cls, String field) {
+            val mField = cls.getField(field);
+            if (!Modifier.isStatic(mField.getModifiers()))
+                throw new IllegalStateException("not static field '" + field + "' on '" + cls + "'");
+            return accessible(mField).get(null);
+        }
+
+        static <T extends Annotation> List<T> collectAnnotations(Method m, Class<T> an, List<Class<?>> faces) {
+            val collected = new ArrayList<T>();
+            for (Class<?> cls : faces) {
+                try {
+                    val fn = cls.getDeclaredMethod(m.getName(), m.getParameterTypes());
+                    collected.addAll(Arrays.asList(fn.getAnnotationsByType(an)));
+                } catch (NoSuchMethodException ignored) {
+
+                }
+            }
+            return collected;
+        }
+
+        Predicate<Method> isPublicNoneDefault = x -> !x.isDefault() &&
+            !Modifier.isStatic(x.getModifiers()) &&
+            Modifier.isPublic(x.getModifiers());
+        Predicate<Method> isBeanGetter = x -> (x.getParameterCount() == 0 &&
+            (x.getName().startsWith("get") && x.getReturnType() != Void.TYPE ||
+                (x.getReturnType() == boolean.class && x.getName().startsWith("is")))
+        );
+        Predicate<Method> isBeanSetter = x -> (x.getParameterCount() == 1 &&
+            x.getName().startsWith("set") &&
+            (x.getReturnType() == Void.TYPE || x.getReturnType() == x.getDeclaringClass()));
+
+        Predicate<Method> isFluentSetter = x -> (
+            x.getParameterCount() == 1 &&
+                (x.getReturnType() == Void.TYPE || x.getReturnType() == x.getDeclaringClass())
+        );
+        Predicate<Method> isFluentGetter = x -> (x.getParameterCount() == 0 && x.getReturnType() != Void.TYPE);
+        Predicate<Method> fluentGetter = isPublicNoneDefault.and(isFluentGetter);
+        Predicate<Method> fluentSetter = isPublicNoneDefault.and(isFluentSetter);
+        Predicate<Method> beanSetter = isPublicNoneDefault.and(isBeanSetter);
+        Predicate<Method> beanGetter = isPublicNoneDefault.and(isBeanGetter);
+        Predicate<Method> mixGetter = isPublicNoneDefault.and(isFluentGetter.or(isBeanGetter));
+        Predicate<Method> mixSetter = isPublicNoneDefault.and(isFluentSetter.or(isBeanSetter));
+        Function<Method, String> fluentGetterName = Method::getName;
+        Function<Method, String> fluentSetterName = Method::getName;
+        Function<Method, String> beanGetterName = x -> Case.pascalToCamel(x.getName().startsWith("is") ? x.getName().substring(2) : x.getName().substring(3));
+        Function<Method, String> beanSetterName = x -> Case.pascalToCamel(x.getName().substring(3));
+        Function<Method, String> mixSetterName = x -> x.getName().startsWith("set") ? Case.pascalToCamel(x.getName().substring(3)) : x.getName();
+        Function<Method, String> mixGetterName = x -> x.getName().startsWith("is") || x.getName().startsWith("get") ? beanGetterName.apply(x) : x.getName();
+
+        interface Case {
+            int CASE_MASK = 0x20;
+
+            static boolean isLower(char c) {
+                return (c >= 'a') && (c <= 'z');
+            }
+
+            static boolean isUpper(char c) {
+                return (c >= 'A') && (c <= 'Z');
+            }
+
+            static char toUpper(char c) {
+                return isLower(c) ? (char) (c ^ CASE_MASK) : c;
+            }
+
+            static char toLower(char c) {
+                return isUpper(c) ? (char) (c ^ CASE_MASK) : c;
+            }
+
+            static boolean isLowerUnderscore(String str, char divider) {
+                return str.chars().allMatch(x -> x == divider || !isUpper((char) x));
+            }
+
+            static boolean isUpperDivide(String str, char divider) {
+                return str.chars().allMatch(x -> x == divider || !isLower((char) x));
+            }
+
+            static boolean isPascal(String str) {
+                return isUpper(str.charAt(0)) && str.chars().noneMatch(x -> x == '-' || x == '_');
+            }
+
+            static boolean isCamel(String str) {
+                return isLower(str.charAt(0)) && str.chars().noneMatch(x -> x == '-' || x == '_');
+            }
+
+            static String camelToLowerDivide(String str, char divider) {
+                val sb = new StringBuilder();
+                for (char c : str.toCharArray()) {
+                    if (isUpper(c)) {
+                        sb.append(divider).append(toLower(c));
+                    } else {
+                        sb.append(c);
+                    }
+                }
+                return sb.toString();
+            }
+
+            static String camelToUpperDivide(String str, char divider) {
+                val sb = new StringBuilder();
+                for (char c : str.toCharArray()) {
+                    if (isUpper(c)) {
+                        sb.append(divider).append(c);
+                    } else {
+                        sb.append(toUpper(c));
+                    }
+                }
+                return sb.toString();
+            }
+
+            static String camelToPascal(String str) {
+                return toUpper(str.charAt(0)) + str.substring(1);
+            }
+
+            static String pascalToCamel(String str) {
+                return toLower(str.charAt(0)) + str.substring(1);
+            }
+
+            static String pascalToUpperDivide(String str, char divider) {
+                val sb = new StringBuilder();
+                for (char c : str.toCharArray()) {
+                    if (isUpper(c)) {
+                        if (sb.length() > 2)
+                            sb.append(divider);
+                        sb.append(c);
+                    } else {
+                        sb.append(toUpper(c));
+                    }
+                }
+                return sb.toString();
+            }
+
+            static String pascalToLowerDivide(String str, char divider) {
+                val sb = new StringBuilder();
+                for (char c : str.toCharArray()) {
+                    if (isUpper(c)) {
+                        if (sb.length() > 2)
+                            sb.append(divider);
+                        sb.append(toLower(c));
+                    } else {
+                        sb.append(c);
+                    }
+                }
+                return sb.toString();
+            }
+
+            Function<String, String> classToTable = s -> pascalToLowerDivide(s, '_');
+            Function<String, String> propertyToTable = s -> camelToLowerDivide(s, '_');
+        }
+
     }
 }

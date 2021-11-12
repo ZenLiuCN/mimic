@@ -170,6 +170,7 @@ class MimicTest {
             assertEquals(BigDecimal.valueOf(4), i.halfOrDefault());
             System.out.println(i);
         };
+        Mimic.DynamicProxy.enable();
         var F = fluent.get();
         var f = flue.get();
         fluentValidate.accept(F);
@@ -241,6 +242,8 @@ class MimicTest {
             assertEquals(24L, r.idOfUser());
             assertEquals(BigDecimal.TEN, r.user());
         };
+        Mimic.DynamicProxy.enable();
+        Mimic.Dao.DynamicProxy.enable();
         var fluent = fluentDao.get();
         var flue = flueDao.get();
         assertEquals(name1, seq(fluent.allFields()).map(Field::getName).sorted().toList());
@@ -249,6 +252,7 @@ class MimicTest {
         assertEquals(cfg, flue.configuration());
         fluentValidate.accept(fluent);
         flueValidate.accept(flue);
+        Mimic.ByteASM.enable();
         Mimic.Dao.ByteASM.enable();
         fluent = fluentDao.get();
         flue = flueDao.get();
