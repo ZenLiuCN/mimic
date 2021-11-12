@@ -399,30 +399,11 @@ public interface Mimic {
                         getName = Util.beanGetterName;
                         setName = Util.beanSetterName;
                     }
-                    extract = internal::commonExtract;
+                    extract = Util::commonPropertyNameExtract;
                 }
             }
             return NamingStrategy.of(getPred, setPred, getName, setName, extract);
         }
-
-
-        //region Name Converter
-        static String lowerFist(String val) {
-            char[] c = val.toCharArray();
-            c[0] = Character.toLowerCase(c[0]);
-            return new String(c);
-        }
-
-
-        //endregion
-        public static String commonExtract(String x) {
-            return lowerFist(x.startsWith("is") ? x.substring(2) :
-                x.startsWith("get") || x.startsWith("set") ? x.substring(3) : x);
-        }
-
-        static final Consumer<Object> hold = x -> {
-        };
-
 
         //(method,nameExtractor)->(propertyName,(GetterProcessor,SetterProcessor,ParamValidate,propertyType,ObjectValidation))
         @SuppressWarnings({"ConstantConditions", "unchecked"})
@@ -543,7 +524,6 @@ public interface Mimic {
                         ((Mimic) x).validate();
                     else if (x instanceof Map)
                         instance(prop, (Map<String, Object>) x).validate();
-                    else hold.accept(x);
                 } : (na, x) -> {
                     if (x instanceof Mimic)
                         ((Mimic) x).validate();
@@ -2047,6 +2027,11 @@ public interface Mimic {
         Function<Method, String> beanSetterName = x -> Case.pascalToCamel(x.getName().substring(3));
         Function<Method, String> mixSetterName = x -> x.getName().startsWith("set") ? Case.pascalToCamel(x.getName().substring(3)) : x.getName();
         Function<Method, String> mixGetterName = x -> x.getName().startsWith("is") || x.getName().startsWith("get") ? beanGetterName.apply(x) : x.getName();
+
+        static String commonPropertyNameExtract(String x) {
+            return x.startsWith("is") ? Case.pascalToCamel(x.substring(2)) :
+                x.startsWith("get") || x.startsWith("set") ? Case.pascalToCamel(x.substring(3)) : x;
+        }
 
         interface Case {
             int CASE_MASK = 0x20;
