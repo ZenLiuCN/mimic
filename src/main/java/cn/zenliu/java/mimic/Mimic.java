@@ -98,6 +98,7 @@ public interface Mimic {
     Logger log = LoggerFactory.getLogger(Mimic.class);
 
     //region Definitions
+
     /**
      * method to fetch internal Map,
      * <p><b>Note:</b>Never TO OVERRIDDEN
@@ -131,6 +132,7 @@ public interface Mimic {
     }
 
     //region Annotations
+
     /**
      * define a Mimic type use JavaBean GetterSetter protocol
      */
@@ -381,25 +383,25 @@ public interface Mimic {
             {
                 val ann = cls.getAnnotationsByType(JavaBean.class);
                 if (ann.length == 0) {
-                    getPred = Util.fluentGetter;
-                    setPred = Util.fluentSetter;
-                    getName = Util.fluentGetterName;
-                    setName = Util.fluentSetterName;
+                    getPred = Util.Predication.fluentGetter;
+                    setPred = Util.Predication.fluentSetter;
+                    getName = Util.Predication.fluentGetterName;
+                    setName = Util.Predication.fluentSetterName;
                     extract = Function.identity();
                 } else {
                     val an = ann[0];
                     if (an.value()) {
-                        getPred = Util.mixGetter;
-                        setPred = Util.mixSetter;
-                        getName = Util.mixGetterName;
-                        setName = Util.mixSetterName;
+                        getPred = Util.Predication.mixGetter;
+                        setPred = Util.Predication.mixSetter;
+                        getName = Util.Predication.mixGetterName;
+                        setName = Util.Predication.mixSetterName;
                     } else {
-                        getPred = Util.beanGetter;
-                        setPred = Util.beanSetter;
-                        getName = Util.beanGetterName;
-                        setName = Util.beanSetterName;
+                        getPred = Util.Predication.beanGetter;
+                        setPred = Util.Predication.beanSetter;
+                        getName = Util.Predication.beanGetterName;
+                        setName = Util.Predication.beanSetterName;
                     }
-                    extract = Util::commonPropertyNameExtract;
+                    extract = Util::methodPropertyNameExtract;
                 }
             }
             return NamingStrategy.of(getPred, setPred, getName, setName, extract);
@@ -1951,12 +1953,10 @@ public interface Mimic {
                 accessible.setAccessible(true);
             return accessible;
         }
-
         /**
          * MethodHandles Lookup Constructor
          */
         AtomicReference<Constructor<MethodHandles.Lookup>> constructor = new AtomicReference<>();
-
         @SuppressWarnings("JavaReflectionMemberAccess")
         @SneakyThrows
         static MethodHandle fetchMethod(Class<?> declaringClass, Method m) {
@@ -1977,7 +1977,6 @@ public interface Mimic {
                 .newInstance(declaringClass, null, MethodHandles.Lookup.PRIVATE))
                 .unreflectSpecial(m, declaringClass);
         }
-
         @SneakyThrows
         static Object fetchStaticFieldValue(Class<?> cls, String field) {
             val mField = cls.getField(field);
@@ -1985,7 +1984,6 @@ public interface Mimic {
                 throw new IllegalStateException("not static field '" + field + "' on '" + cls + "'");
             return accessible(mField).get(null);
         }
-
         static <T extends Annotation> List<T> collectAnnotations(Method m, Class<T> an, List<Class<?>> faces) {
             val collected = new ArrayList<T>();
             for (Class<?> cls : faces) {
@@ -1999,36 +1997,39 @@ public interface Mimic {
             return collected;
         }
 
-        Predicate<Method> isPublicNoneDefault = x -> !x.isDefault() &&
-            !Modifier.isStatic(x.getModifiers()) &&
-            Modifier.isPublic(x.getModifiers());
-        Predicate<Method> isBeanGetter = x -> (x.getParameterCount() == 0 &&
-            (x.getName().startsWith("get") && x.getReturnType() != Void.TYPE ||
-                (x.getReturnType() == boolean.class && x.getName().startsWith("is")))
-        );
-        Predicate<Method> isBeanSetter = x -> (x.getParameterCount() == 1 &&
-            x.getName().startsWith("set") &&
-            (x.getReturnType() == Void.TYPE || x.getReturnType() == x.getDeclaringClass()));
+        interface Predication {
+            Predicate<Method> isPublicNoneDefault = x -> !x.isDefault() &&
+                !Modifier.isStatic(x.getModifiers()) &&
+                Modifier.isPublic(x.getModifiers());
+            Predicate<Method> isBeanGetter = x -> (x.getParameterCount() == 0 &&
+                (x.getName().startsWith("get") && x.getReturnType() != Void.TYPE ||
+                    (x.getReturnType() == boolean.class && x.getName().startsWith("is")))
+            );
+            Predicate<Method> isBeanSetter = x -> (x.getParameterCount() == 1 &&
+                x.getName().startsWith("set") &&
+                (x.getReturnType() == Void.TYPE || x.getReturnType() == x.getDeclaringClass()));
 
-        Predicate<Method> isFluentSetter = x -> (
-            x.getParameterCount() == 1 &&
-                (x.getReturnType() == Void.TYPE || x.getReturnType() == x.getDeclaringClass())
-        );
-        Predicate<Method> isFluentGetter = x -> (x.getParameterCount() == 0 && x.getReturnType() != Void.TYPE);
-        Predicate<Method> fluentGetter = isPublicNoneDefault.and(isFluentGetter);
-        Predicate<Method> fluentSetter = isPublicNoneDefault.and(isFluentSetter);
-        Predicate<Method> beanSetter = isPublicNoneDefault.and(isBeanSetter);
-        Predicate<Method> beanGetter = isPublicNoneDefault.and(isBeanGetter);
-        Predicate<Method> mixGetter = isPublicNoneDefault.and(isFluentGetter.or(isBeanGetter));
-        Predicate<Method> mixSetter = isPublicNoneDefault.and(isFluentSetter.or(isBeanSetter));
-        Function<Method, String> fluentGetterName = Method::getName;
-        Function<Method, String> fluentSetterName = Method::getName;
-        Function<Method, String> beanGetterName = x -> Case.pascalToCamel(x.getName().startsWith("is") ? x.getName().substring(2) : x.getName().substring(3));
-        Function<Method, String> beanSetterName = x -> Case.pascalToCamel(x.getName().substring(3));
-        Function<Method, String> mixSetterName = x -> x.getName().startsWith("set") ? Case.pascalToCamel(x.getName().substring(3)) : x.getName();
-        Function<Method, String> mixGetterName = x -> x.getName().startsWith("is") || x.getName().startsWith("get") ? beanGetterName.apply(x) : x.getName();
+            Predicate<Method> isFluentSetter = x -> (
+                x.getParameterCount() == 1 &&
+                    (x.getReturnType() == Void.TYPE || x.getReturnType() == x.getDeclaringClass())
+            );
+            Predicate<Method> isFluentGetter = x -> (x.getParameterCount() == 0 && x.getReturnType() != Void.TYPE);
+            Predicate<Method> fluentGetter = isPublicNoneDefault.and(isFluentGetter);
+            Predicate<Method> fluentSetter = isPublicNoneDefault.and(isFluentSetter);
+            Predicate<Method> beanSetter = isPublicNoneDefault.and(isBeanSetter);
+            Predicate<Method> beanGetter = isPublicNoneDefault.and(isBeanGetter);
+            Predicate<Method> mixGetter = isPublicNoneDefault.and(isFluentGetter.or(isBeanGetter));
+            Predicate<Method> mixSetter = isPublicNoneDefault.and(isFluentSetter.or(isBeanSetter));
+            Function<Method, String> fluentGetterName = Method::getName;
+            Function<Method, String> fluentSetterName = Method::getName;
+            Function<Method, String> beanGetterName = x -> Case.pascalToCamel(x.getName().startsWith("is") ? x.getName().substring(2) : x.getName().substring(3));
+            Function<Method, String> beanSetterName = x -> Case.pascalToCamel(x.getName().substring(3));
+            Function<Method, String> mixSetterName = x -> x.getName().startsWith("set") ? Case.pascalToCamel(x.getName().substring(3)) : x.getName();
+            Function<Method, String> mixGetterName = x -> x.getName().startsWith("is") || x.getName().startsWith("get") ? beanGetterName.apply(x) : x.getName();
 
-        static String commonPropertyNameExtract(String x) {
+        }
+
+        static String methodPropertyNameExtract(String x) {
             return x.startsWith("is") ? Case.pascalToCamel(x.substring(2)) :
                 x.startsWith("get") || x.startsWith("set") ? Case.pascalToCamel(x.substring(3)) : x;
         }
@@ -2128,8 +2129,42 @@ public interface Mimic {
                 return sb.toString();
             }
 
+            static String divideToCamel(String str, char divider) {
+                val sb = new StringBuilder();
+                for (char c : str.toCharArray()) {
+                    if (c == divider) {
+                        if (sb.length() == 0) {
+                            continue;
+                        }
+                        sb.append(Mimic.Util.Case.toUpper(c));
+                    } else {
+                        sb.append(Mimic.Util.Case.toLower(c));
+                    }
+                }
+                return sb.toString();
+            }
+
+            static String divideToPascal(String str, char divider) {
+                val sb = new StringBuilder();
+                for (char c : str.toCharArray()) {
+                    if (c == divider) {
+                        if (sb.length() == 0) {
+                            continue;
+                        }
+                        sb.append(Mimic.Util.Case.toUpper(c));
+                    } else {
+                        if (sb.length() == 0) {
+                            sb.append(Mimic.Util.Case.toUpper(c));
+                        } else sb.append(Mimic.Util.Case.toLower(c));
+                    }
+                }
+                return sb.toString();
+            }
+
             Function<String, String> classToTable = s -> pascalToLowerDivide(s, '_');
             Function<String, String> propertyToTable = s -> camelToLowerDivide(s, '_');
+            Function<String, String> tableToClass = s -> divideToPascal(s, '_');
+            Function<String, String> tableToProperty = s -> divideToCamel(s, '_');
         }
 
     }
