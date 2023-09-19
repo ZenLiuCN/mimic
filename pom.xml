@@ -64,7 +64,8 @@
         <bytebuddy.version>1.14.2</bytebuddy.version>
         <slf4j.version>2.0.5</slf4j.version>
         <jetbrains_annotations.version>24.0.1</jetbrains_annotations.version>
-        <units.version>1.0-SNAPSHOT</units.version>
+<!--        <units.version>1.0-SNAPSHOT</units.version>-->
+        <units.version>0.1.2</units.version>
     </properties>
     <dependencyManagement>
         <dependencies>
