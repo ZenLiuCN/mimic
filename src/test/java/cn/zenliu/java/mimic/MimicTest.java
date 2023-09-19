@@ -3,7 +3,6 @@ package cn.zenliu.java.mimic;
 import com.zaxxer.hikari.HikariConfig;
 import com.zaxxer.hikari.HikariDataSource;
 import lombok.val;
-import lombok.var;
 import org.jooq.DataType;
 import org.jooq.Field;
 import org.jooq.SQLDialect;
@@ -24,7 +23,7 @@ import static org.jooq.lambda.Seq.seq;
 import static org.junit.jupiter.api.Assertions.*;
 
 class MimicTest {
-    @Mimic.Dao.Entity
+    @Entity
     public interface Fluent extends Mimic {
         long id();
 
@@ -48,7 +47,7 @@ class MimicTest {
         }
     }
 
-    @Mimic.Dao.Entity
+    @Entity
     public interface Flue extends Fluent {
 
         @AsString
@@ -114,7 +113,7 @@ class MimicTest {
         }
 
         default Flue fetchById(long id) {
-            return instance(ctx().selectFrom(table()).where(id().eq(id)).fetchOne().intoMap());
+            return instance(ctx().select(allFields()).from(table()).where(id().eq(id)).fetchOne().intoMap());
         }
 
         default void deleteAll() {
@@ -126,9 +125,9 @@ class MimicTest {
 
     static {
         cfg = new DefaultConfiguration();
-        cfg.setSQLDialect(SQLDialect.H2);
+        cfg.setSQLDialect(SQLDialect.DERBY);
         val hc = new HikariConfig();
-        hc.setJdbcUrl("jdbc:h2:mem:test");
+        hc.setJdbcUrl("jdbc:derby:memory:test;create=true");
         cfg.setDataSource(new HikariDataSource(hc));
     }
 
@@ -208,7 +207,7 @@ class MimicTest {
             assertEquals(id, r.id());
             assertEquals(8L, r.identity());
             assertEquals(24L, r.idOfUser());
-            r = dao.queryConditional(s -> s.where(dao.id().eq(id)).orderBy(dao.identity()).limit(1))
+            r = dao.stream(s -> s.where(dao.id().eq(id)).orderBy(dao.identity()).limit(1))
                 .findFirst().orElseThrow(IllegalStateException::new);
             assertEquals(id, r.id());
             assertEquals(8L, r.identity());
@@ -222,7 +221,7 @@ class MimicTest {
             i.id(id);
             i.identity(12L);
             i.idOfUser(24L);
-            i.user(BigDecimal.TEN);
+            i.user(BigDecimal.valueOf(12.3));
             assertEquals(property2, seq(i.underlyingChangedProperties()).sorted().toList());
             dao.inertInto(i);
             val i2 = dao.fetchById(id);
@@ -234,13 +233,13 @@ class MimicTest {
             assertEquals(id, r.id());
             assertEquals(8L, r.identity());
             assertEquals(24L, r.idOfUser());
-            assertEquals(BigDecimal.TEN, r.user());
-            r = dao.queryConditional(s -> s.where(dao.id().eq(id)).orderBy(dao.identity()).limit(1))
+            assertEquals(BigDecimal.valueOf(12.3), r.user());
+            r = dao.stream(s -> s.where(dao.id().eq(id)).orderBy(dao.identity()).limit(1))
                 .findFirst().orElseThrow(IllegalStateException::new);
             assertEquals(id, r.id());
             assertEquals(8L, r.identity());
             assertEquals(24L, r.idOfUser());
-            assertEquals(BigDecimal.TEN, r.user());
+            assertEquals(BigDecimal.valueOf(12.3), r.user());
         };
         Mimic.DynamicProxy.enable();
         Mimic.Dao.DynamicProxy.enable();

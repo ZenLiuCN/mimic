@@ -167,11 +167,14 @@ define interface as data structure
 ```java
 //define a interface 
 
+import cn.zenliu.java.mimic.AsString;
+import cn.zenliu.java.mimic.Entity;
 import cn.zenliu.java.mimic.Mimic;
+import cn.zenliu.java.mimic.Validation;
 
 import java.util.Map;
 
-@Mimic.Dao.Entity //only want to use a Jooq DAO
+@Entity //only want to use a Jooq DAO
 public interface Fluent extends Mimic {
     long id();
 
