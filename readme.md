@@ -304,3 +304,9 @@ public class Launcher {
 
 More sample just check out maven project in `sample` directory. There may be a small example Project to
 use `mimic+h2+jooq+reactor-netty` as micro webservice, if got time.
+
+## note
+
+current master branch will keep with the nearest release code and two branches added for:
+1. `dev/1.1.x`: old code that support java 8
+2. `dev/1.2.x`: new code that support at least Java 17
