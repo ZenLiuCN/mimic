@@ -1,6 +1,7 @@
 package samples.proxy.dao;
 
-import cn.zenliu.java.mimic.Config;
+
+import cn.zenliu.java.mimic.Mimic;
 import com.zaxxer.hikari.HikariConfig;
 import com.zaxxer.hikari.HikariDataSource;
 import lombok.extern.slf4j.Slf4j;
@@ -13,7 +14,9 @@ public class Launcher {
     static final DefaultConfiguration cfg;
 
     static {
-        Config.cacheSize.set(500);
+        System.setProperty("mimic.cache", "500");
+        Mimic.DynamicProxy.enable();
+        Mimic.Dao.DynamicProxy.enable();
         cfg = new DefaultConfiguration();
         cfg.setSQLDialect(SQLDialect.H2);
         val hc = new HikariConfig();

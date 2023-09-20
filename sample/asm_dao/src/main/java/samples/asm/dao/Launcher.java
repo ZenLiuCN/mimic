@@ -1,6 +1,5 @@
 package samples.asm.dao;
 
-import cn.zenliu.java.mimic.Config;
 import cn.zenliu.java.mimic.Mimic;
 import com.zaxxer.hikari.HikariConfig;
 import com.zaxxer.hikari.HikariDataSource;
@@ -17,7 +16,7 @@ public class Launcher {
     static final DefaultConfiguration cfg;
 
     static {
-        Config.cacheSize.set(500);
+        System.setProperty("mimic.cache", "500");
         Mimic.ByteASM.enable();
         Mimic.Dao.ByteASM.enable();
         cfg = new DefaultConfiguration();
@@ -53,7 +52,7 @@ public class Launcher {
                 throw new IllegalStateException("rollback");// transaction won't commit
             });
         } catch (Exception e) {
-            e.printStackTrace();
+            //e.printStackTrace();
         }
         val fdao = Fluent.FlueDao.of(null);
         fdao.DDL();

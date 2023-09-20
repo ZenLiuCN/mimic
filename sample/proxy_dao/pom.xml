@@ -11,19 +11,5 @@
 
     <artifactId>proxy_dao</artifactId>
 
-    <dependencies>
-        <dependency>
-            <groupId>org.jooq</groupId>
-            <artifactId>jooq</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>com.h2database</groupId>
-            <artifactId>h2</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>com.zaxxer</groupId>
-            <artifactId>HikariCP</artifactId>
-        </dependency>
-    </dependencies>
 
 </project>

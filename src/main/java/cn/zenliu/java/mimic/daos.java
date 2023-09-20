@@ -355,7 +355,7 @@ public final class daos {
             final Class<?> repo = type.v2;
             final List<Class<?>> faces = new ArrayList<>(Arrays.asList(repo.getInterfaces()));
             faces.add(0, repo);
-            var ann = entity.getAnnotationsByType(Entity.class);
+            var ann = entity.getAnnotationsByType(Mimic.Dao.Entity.class);
             if (ann.length == 0) {
                 throw new IllegalStateException("there have no @Entity on Mimic ");
             }
@@ -388,7 +388,7 @@ public final class daos {
                     dataType = null;
                 }
                 {
-                    var ann = Util.collectAnnotations(m, As.class, faces);
+                    var ann = Util.collectAnnotations(m, Mimic.Dao.As.class, faces);
                     if (!ann.isEmpty()) {
                         var an = ann.get(0);
                         if (!an.value().isEmpty()) {

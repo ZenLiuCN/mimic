@@ -172,7 +172,7 @@ public final class mimics {
         final Function<Method, String> getName;
         final Function<String, String> extract;
         {
-            var ann = cls.getAnnotationsByType(JavaBean.class);
+            var ann = cls.getAnnotationsByType(Mimic.JavaBean.class);
             if (ann.length == 0) {
                 getPred = Util.Predication.fluentGetter;
                 setPred = Util.Predication.fluentSetter;
@@ -222,7 +222,7 @@ public final class mimics {
         boolean conv = false;
         //Array Annotation
         {
-            var ann = Util.collectAnnotations(m, Array.class, faces);
+            var ann = Util.collectAnnotations(m, Mimic.Many.class, faces);
             if (!ann.isEmpty()) {
                 conv = true;
                 var typ = ann.get(0).value();
@@ -254,7 +254,7 @@ public final class mimics {
         }
         //AsString Annotation
         if (processor == null) {
-            var ann = m.getAnnotationsByType(AsString.class);
+            var ann = m.getAnnotationsByType(Mimic.Dao.AsString.class);
             if (ann.length != 0) {
                 conv = true;
                 var v = ann[0];
@@ -281,7 +281,7 @@ public final class mimics {
         //common Annotation Validate
         {
             var exists = new HashSet<Tuple2<Class, String>>();
-            var va = Seq.seq(Util.collectAnnotations(m, Validation.class, faces))
+            var va = Seq.seq(Util.collectAnnotations(m, Mimic.Validation.class, faces))
                 .map(x -> {
                     var id = tuple((Class) x.value(), x.property());
                     if (!exists.contains(id)) {
@@ -337,7 +337,7 @@ public final class mimics {
 
     //(asString)=>(FromString,ToString)
     @SuppressWarnings("unchecked")
-    static Tuple2<Function<Object, Object>, Function<Object, Object>> extract(AsString an) {
+    static Tuple2<Function<Object, Object>, Function<Object, Object>> extract(Mimic.Dao.AsString an) {
         var holder = an.value();
         var frm = (Function<Object, Object>) Util.fetchStaticFieldValue(holder, an.fromProperty());
         var tr = (Function<Object, Object>) Util.fetchStaticFieldValue(holder, an.toProperty());
@@ -410,7 +410,7 @@ public final class mimics {
                 var info = seq(prop)
                     .map(x -> x.map2(v -> v.map3(t -> new PropertyInfo(x.v1, t))))
                     .toMap(Tuple2::v1, Tuple2::v2);
-                var concurrently = cls.getAnnotationsByType(Concurrent.class);
+                var concurrently = cls.getAnnotationsByType(Mimic.Concurrent.class);
                 //0 no concurrent, 1 use sync ,2 use concurrent hashmap
                 var concurrent = concurrently.length == 0 ? 0 : concurrently[0].value() ? 1 : 2;
                 var n = prop.size(); //see hashMap default load factor

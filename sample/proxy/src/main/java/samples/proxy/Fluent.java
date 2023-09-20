@@ -5,7 +5,10 @@ import cn.zenliu.java.mimic.Mimic;
 import java.math.BigDecimal;
 import java.util.Map;
 
-@Mimic.Dao.Entity
+import static cn.zenliu.java.mimic.Mimic.Dao.AsString;
+import static cn.zenliu.java.mimic.Mimic.Dao.Entity;
+
+@Entity
 public interface Fluent extends Mimic {
     long id();
 
@@ -32,7 +35,7 @@ public interface Fluent extends Mimic {
         return Mimic.newInstance(Fluent.class, value);
     }
 
-    @Dao.Entity
+    @Entity
     public interface Flue extends Fluent {
         @AsString
         @Override

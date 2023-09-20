@@ -25,6 +25,8 @@ import org.jooq.lambda.tuple.Tuple2;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.lang.annotation.*;
+import java.math.BigDecimal;
 import java.sql.Timestamp;
 import java.time.Instant;
 import java.util.List;
@@ -58,8 +60,8 @@ import static org.jooq.lambda.Seq.seq;
  * under other conditions it always returns null.
  * <p><b>Misc</b></p>
  * <p><b>Inherit</b>: Mimic can inherit from other Mimic </p>
- * <p><b>Conversion</b>: Mimic can annotate with {@link AsString} on getter or setter to enable single property conversion.
- * <p> for Collections(LIST,SET and ARRAY), there is {@link Array} to support nested Mimicked properties. but current {@link Map} is not been supported.
+ * <p><b>Conversion</b>: Mimic can annotate with {@link Dao.AsString} on getter or setter to enable single property conversion.
+ * <p> for Collections(LIST,SET and ARRAY), there is {@link Many} to support nested Mimicked properties. but current {@link Map} is not been supported.
  * <p><b>Validation</b>: Mimic can annotate with {@link Validation} on getter or setter to enable single property validation.
  * <p> Mimic also use overrideable method {@link Mimic#validate()} to active a Pojo validation.</p>
  * <p><b>Extension</b>: {@link Dao} is extension for use {@link Mimic} as easy Jooq repository.</p>
@@ -382,6 +384,149 @@ public interface Mimic {
                 daos.cache.set(daos.DynamicFactory.cache::get);
             }
         }
+
+        /**
+         * define a Mimic is Entity,which can build a Repository;
+         * <p>this must <b>directly</b> annotate on a Mimic type;
+         */
+        @Retention(RetentionPolicy.RUNTIME)
+        @Target(ElementType.TYPE)
+        @Documented
+        @interface Entity {
+            String value() default "";
+        }
+
+        /**
+         * define a Field detail
+         */
+        @Retention(RetentionPolicy.RUNTIME)
+        @Target(ElementType.METHOD)
+        @Inherited
+        @Documented
+        @interface As {
+            /**
+             * define field name,default is Property name convert to underscore case.
+             */
+            String value() default "";
+
+            /**
+             * which class hold current field DataType
+             */
+            Class<?> typeHolder() default Dao.class;
+
+            /**
+             * which public static field in {@link As#typeHolder()} is the {@link DataType} of current field.
+             * <p> see {@link Dao#BigIntIdentity} as Example.
+             */
+            String typeProperty() default "";
+
+            /**
+             * define a class holds the DataType Processor;
+             * <p>see {@link Dao#Identity} as Example
+             */
+            Class<?> procHolder() default Dao.class;
+
+            /**
+             * define a static property holds the DataType Processor on {@link As#procHolder()}
+             * <p> the property must is type Function< DataType , DataType >
+             */
+            String procProperty() default "";
+        }
+
+        /**
+         * define a property is converted to string, should not use with {@link Many}
+         */
+        @Retention(RetentionPolicy.RUNTIME)
+        @Target(ElementType.METHOD)
+        @Inherited
+        @Documented
+        @interface AsString {
+            /**
+             * the holder of Converter Methods;
+             * If is predefined type,should keep it Void;
+             * <p>current predefined type is: {@link BigDecimal} {@link Long} {@link Instant}
+             */
+            Class<?> value() default Void.class;
+
+            /**
+             * the static property name of convert String to T
+             * <p> which must have type {@link Function}
+             * as Function< String, Object >;
+             */
+            String fromProperty() default "fromString";
+
+            /**
+             * the static property name of convert T to String;
+             * <p>which must have type {@link Function}
+             * as Function< Object,String >;
+             */
+            String toProperty() default "toString";
+        }
     }
 
+    /**
+     * mark the mimic use Concurrent protection.
+     */
+    @Retention(RetentionPolicy.RUNTIME)
+    @Target(ElementType.TYPE)
+    @Inherited
+    @Documented
+    @interface Concurrent {
+        /**
+         * use lock not concurrent hashmap: not suggested.
+         */
+        boolean value() default false;
+    }
+
+    /**
+     * define a Mimic type use JavaBean GetterSetter protocol
+     */
+    @Retention(RetentionPolicy.RUNTIME)
+    @Target(ElementType.TYPE)
+    @Inherited
+    @Documented
+    @interface JavaBean {
+        /**
+         * Allow Fluent Mode
+         */
+        boolean value() default false;
+    }
+
+    /**
+     * <p>used to define Validation on Getter;
+     * <p>this used to Validate on Set and on validate method;
+     * <p>if current property is Annotated with {@link Dao.AsString},the Validation only happened when Setter is called.
+     */
+    @Retention(RetentionPolicy.RUNTIME)
+    @Target(ElementType.METHOD)
+    @Inherited
+    @Documented
+    @interface Validation {
+        /**
+         * the holder of Validation Property;
+         */
+        Class<?> value() default Validate.class;
+
+        /**
+         * the static property name of Validate BiConsumer< PropertyName,Value >
+         */
+        String property() default "noop";
+
+    }
+
+    /**
+     * define a property is Collection of Mimic;
+     * <p>Current support 1. Array 2. List 3. Set;
+     * <p>should not use with {@link Many}
+     */
+    @Retention(RetentionPolicy.RUNTIME)
+    @Target(ElementType.METHOD)
+    @Inherited
+    @Documented
+    @interface Many {
+        /**
+         * mark the value type
+         */
+        Class<? extends Mimic> value();
+    }
 }

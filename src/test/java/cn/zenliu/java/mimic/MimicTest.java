@@ -23,7 +23,7 @@ import static org.jooq.lambda.Seq.seq;
 import static org.junit.jupiter.api.Assertions.*;
 
 class MimicTest {
-    @Entity
+    @Mimic.Dao.Entity
     public interface Fluent extends Mimic {
         long id();
 
@@ -34,7 +34,7 @@ class MimicTest {
 
         Fluent identity(Long val);
 
-        @AsString
+        @Dao.AsString
         Long idOfUser();
 
         Fluent idOfUser(Long val);
@@ -47,10 +47,10 @@ class MimicTest {
         }
     }
 
-    @Entity
+    @Mimic.Dao.Entity
     public interface Flue extends Fluent {
 
-        @AsString
+        @Dao.AsString
         @Override
         Long identity();
 
@@ -255,75 +255,23 @@ class MimicTest {
         fluentValidate.accept(fluent);
         flueValidate.accept(flue);
 
-    }
+        flue.ctx().dropTable(flue.table()).execute();
+        flue.ctx().dropTable(fluent.table()).execute();
 
-    @Test
-    void testAsmDAO() {
         Mimic.ByteASM.enable();
         Mimic.Dao.ByteASM.enable();
-        var fluent = fluentDao.get();
-        var flue = flueDao.get();
-        final Consumer<FluentDao> fluentValidate = dao -> {
-            System.out.println(dao);
-            System.out.println(dao.allFields());
-            System.out.println(dao.DDL());
-            val id = System.currentTimeMillis();
-            val i = dao.instance(null);
-            i.id(id);
-            i.identity(12L);
-            i.idOfUser(24L);
-            assertEquals(property1, seq(i.underlyingChangedProperties()).sorted().toList());
-            dao.inertInto(i);
-            val i2 = dao.fetchById(id);
-            System.out.println(i2);
-            i2.identity(8L);
-            assertEquals("identity", seq(i2.underlyingChangedProperties()).sorted().toString(""));
-            System.out.println(dao.updateWith(i2, dao.id().eq(id)));
-            var r = dao.fetchById(id);
-            assertEquals(id, r.id());
-            assertEquals(8L, r.identity());
-            assertEquals(24L, r.idOfUser());
-            r = dao.stream(s -> s.where(dao.id().eq(id)).orderBy(dao.identity()).limit(1))
-                .findFirst().orElseThrow(IllegalStateException::new);
-            assertEquals(id, r.id());
-            assertEquals(8L, r.identity());
-            assertEquals(24L, r.idOfUser());
-        };
-        final Consumer<FlueDao> flueValidate = dao -> {
-            System.out.println(dao);
-            System.out.println(dao.allFields());
-            System.out.println(dao.DDL());
-            val id = System.currentTimeMillis();
-            val i = dao.instance(null);
-            i.id(id);
-            i.identity(12L);
-            i.idOfUser(24L);
-            i.user(BigDecimal.TEN);
-            assertEquals(property2, seq(i.underlyingChangedProperties()).sorted().toList());
-            dao.inertInto(i);
-            val i2 = dao.fetchById(id);
-            System.out.println(i2);
-            i2.identity(8L);
-            assertEquals("identity", seq(i2.underlyingChangedProperties()).sorted().toString(""));
-            System.out.println(dao.updateWith(i2, dao.id().eq(id)));
-            var r = dao.fetchById(id);
-            assertEquals(id, r.id());
-            assertEquals(8L, r.identity());
-            assertEquals(24L, r.idOfUser());
-            assertEquals(BigDecimal.TEN, r.user());
-            r = dao.stream(s -> s.where(dao.id().eq(id)).orderBy(dao.identity()).limit(1))
-                .findFirst().orElseThrow(IllegalStateException::new);
-            assertEquals(id, r.id());
-            assertEquals(8L, r.identity());
-            assertEquals(24L, r.idOfUser());
-            assertEquals(BigDecimal.TEN, r.user());
-        };
+         fluent = fluentDao.get();
+         flue = flueDao.get();
+
         assertEquals(name1, seq(fluent.allFields()).map(Field::getName).sorted().toList());
         assertEquals(name2, seq(flue.allFields()).map(Field::getName).sorted().toList());
         assertEquals(cfg, fluent.configuration());
         assertEquals(cfg, flue.configuration());
         fluentValidate.accept(fluent);
         flueValidate.accept(flue);
+
     }
+
+
 
 }
