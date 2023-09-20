@@ -127,7 +127,8 @@ class MimicTest {
         cfg = new DefaultConfiguration();
         cfg.setSQLDialect(SQLDialect.DERBY);
         val hc = new HikariConfig();
-        hc.setJdbcUrl("jdbc:derby:memory:test;create=true");
+//        hc.setJdbcUrl("jdbc:derby:memory:test;create=true");
+        hc.setJdbcUrl("jdbc:h2:mem:test");
         cfg.setDataSource(new HikariDataSource(hc));
     }
 
@@ -190,6 +191,7 @@ class MimicTest {
     void testDao() {
         final Consumer<FluentDao> fluentValidate = dao -> {
             System.out.println(dao);
+            System.out.println(dao.allFields());
             System.out.println(dao.DDL());
             val id = System.currentTimeMillis();
             val i = dao.instance(null);
@@ -215,13 +217,14 @@ class MimicTest {
         };
         final Consumer<FlueDao> flueValidate = dao -> {
             System.out.println(dao);
+            System.out.println(dao.allFields());
             System.out.println(dao.DDL());
             val id = System.currentTimeMillis();
             val i = dao.instance(null);
             i.id(id);
             i.identity(12L);
             i.idOfUser(24L);
-            i.user(BigDecimal.valueOf(12.3));
+            i.user(BigDecimal.TEN);
             assertEquals(property2, seq(i.underlyingChangedProperties()).sorted().toList());
             dao.inertInto(i);
             val i2 = dao.fetchById(id);
@@ -233,13 +236,13 @@ class MimicTest {
             assertEquals(id, r.id());
             assertEquals(8L, r.identity());
             assertEquals(24L, r.idOfUser());
-            assertEquals(BigDecimal.valueOf(12.3), r.user());
+            assertEquals(BigDecimal.TEN, r.user());
             r = dao.stream(s -> s.where(dao.id().eq(id)).orderBy(dao.identity()).limit(1))
                 .findFirst().orElseThrow(IllegalStateException::new);
             assertEquals(id, r.id());
             assertEquals(8L, r.identity());
             assertEquals(24L, r.idOfUser());
-            assertEquals(BigDecimal.valueOf(12.3), r.user());
+            assertEquals(BigDecimal.TEN, r.user());
         };
         Mimic.DynamicProxy.enable();
         Mimic.Dao.DynamicProxy.enable();
@@ -251,18 +254,76 @@ class MimicTest {
         assertEquals(cfg, flue.configuration());
         fluentValidate.accept(fluent);
         flueValidate.accept(flue);
+
+    }
+
+    @Test
+    void testAsmDAO() {
         Mimic.ByteASM.enable();
         Mimic.Dao.ByteASM.enable();
-        fluent = fluentDao.get();
-        flue = flueDao.get();
+        var fluent = fluentDao.get();
+        var flue = flueDao.get();
+        final Consumer<FluentDao> fluentValidate = dao -> {
+            System.out.println(dao);
+            System.out.println(dao.allFields());
+            System.out.println(dao.DDL());
+            val id = System.currentTimeMillis();
+            val i = dao.instance(null);
+            i.id(id);
+            i.identity(12L);
+            i.idOfUser(24L);
+            assertEquals(property1, seq(i.underlyingChangedProperties()).sorted().toList());
+            dao.inertInto(i);
+            val i2 = dao.fetchById(id);
+            System.out.println(i2);
+            i2.identity(8L);
+            assertEquals("identity", seq(i2.underlyingChangedProperties()).sorted().toString(""));
+            System.out.println(dao.updateWith(i2, dao.id().eq(id)));
+            var r = dao.fetchById(id);
+            assertEquals(id, r.id());
+            assertEquals(8L, r.identity());
+            assertEquals(24L, r.idOfUser());
+            r = dao.stream(s -> s.where(dao.id().eq(id)).orderBy(dao.identity()).limit(1))
+                .findFirst().orElseThrow(IllegalStateException::new);
+            assertEquals(id, r.id());
+            assertEquals(8L, r.identity());
+            assertEquals(24L, r.idOfUser());
+        };
+        final Consumer<FlueDao> flueValidate = dao -> {
+            System.out.println(dao);
+            System.out.println(dao.allFields());
+            System.out.println(dao.DDL());
+            val id = System.currentTimeMillis();
+            val i = dao.instance(null);
+            i.id(id);
+            i.identity(12L);
+            i.idOfUser(24L);
+            i.user(BigDecimal.TEN);
+            assertEquals(property2, seq(i.underlyingChangedProperties()).sorted().toList());
+            dao.inertInto(i);
+            val i2 = dao.fetchById(id);
+            System.out.println(i2);
+            i2.identity(8L);
+            assertEquals("identity", seq(i2.underlyingChangedProperties()).sorted().toString(""));
+            System.out.println(dao.updateWith(i2, dao.id().eq(id)));
+            var r = dao.fetchById(id);
+            assertEquals(id, r.id());
+            assertEquals(8L, r.identity());
+            assertEquals(24L, r.idOfUser());
+            assertEquals(BigDecimal.TEN, r.user());
+            r = dao.stream(s -> s.where(dao.id().eq(id)).orderBy(dao.identity()).limit(1))
+                .findFirst().orElseThrow(IllegalStateException::new);
+            assertEquals(id, r.id());
+            assertEquals(8L, r.identity());
+            assertEquals(24L, r.idOfUser());
+            assertEquals(BigDecimal.TEN, r.user());
+        };
         assertEquals(name1, seq(fluent.allFields()).map(Field::getName).sorted().toList());
         assertEquals(name2, seq(flue.allFields()).map(Field::getName).sorted().toList());
         assertEquals(cfg, fluent.configuration());
         assertEquals(cfg, flue.configuration());
         fluentValidate.accept(fluent);
         flueValidate.accept(flue);
-
-
     }
 
 }

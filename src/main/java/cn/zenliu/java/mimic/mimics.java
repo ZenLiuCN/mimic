@@ -654,7 +654,7 @@ public final class mimics {
             //initial for current map value to self
             void initial() {
                 trySync(() -> {
-                    for (String p : inner.get().keySet()) {
+                    for (var p : inner.get().keySet()) {
                         if (!info.containsKey(p)) continue; //safe guarding
                         var info = functor.get(p);
                         if (info != null && info.v2 != null) {
@@ -839,7 +839,11 @@ public final class mimics {
                                 fn = fn.map2($ -> {
                                     if (m.getReturnType().isAssignableFrom(Void.TYPE) || Void.class.isAssignableFrom(m.getReturnType())) {
                                         var n = Invoker.make(Ref.$.lookup, m).asBiConsumer();
-                                        return (i, v) -> n.accept(i, new Object[]{v});
+                                        System.out.println(m.getName());
+                                        return (i, v) ->{
+                                            System.out.println(m.getName());
+                                            n.accept(i, new Object[]{v});
+                                        };
                                     } else {
                                         var n = Invoker.make(Ref.$.lookup, m).asBiFunction();
                                         return (i, v) -> n.apply(i, new Object[]{v});

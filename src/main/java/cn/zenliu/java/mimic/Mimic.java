@@ -326,7 +326,7 @@ public interface Mimic {
                 setConstants(
                     ctx()
                         .createTableIfNotExists(table())
-                        .columns(allFields().toArray(new Field[0]))
+                        .columns(allFields().toArray(Field[]::new))
                 )
                     .execute();
         }
