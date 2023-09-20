@@ -115,14 +115,14 @@ Jvm runtime interface Pojo and Repository generator
 
 ## dependency
 
-1. `org.slf4j:slf4j-api:1.7.32` use for logging
-2. `org.jooq:jool-java-8:0.9.14` use for tuples and Seq, maybe removed future.
-3. `com.github.ben-manes.caffeine:caffeine:2.9.2` use for cache.
+1. `org.slf4j:slf4j-api:2.x` use for logging
+2. `org.jooq:jool:0.9.x` use for tuples and Seq, maybe removed future.
+3. `com.github.ben-manes.caffeine:caffeine:3.x` use for cache.
 
 ## optional dependency
 
-1. `net.bytebuddy:byte-buddy:1.11.20`: needed to generate ASM by use `ByteASM` mode.
-2. `org.jooq:jooq:3.14.7`: needed when use `DAO` extension.
+1. `net.bytebuddy:byte-buddy:1.x`: needed to generate ASM by use `ByteASM` mode.
+2. `org.jooq:jooq:3.x`: needed when use `DAO` extension.
 
 ## usage
 
@@ -182,7 +182,7 @@ public interface Fluent extends Mimic {
 
     Fluent identity(Long val);
 
-    @AsString
+    @Dao.AsString
         // this field will store as String
     Long idOfUser();
 
@@ -221,7 +221,7 @@ interface FluentDao extends Mimic.Dao<Fluent> {
     @As(typeHolder = SQLDataType.class, typeProperty = "VARCHAR")
     Field<String> idOfUser();
 
-    //optional override to supply all fields, defualt maybe not with supposed order
+    //optional override to supply all fields, default maybe not with supposed order
     @Override 
     default List<Field<?>> allFields() {
         return Arrays.asList(id(), identity(), idOfUser());

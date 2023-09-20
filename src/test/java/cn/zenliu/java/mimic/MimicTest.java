@@ -3,7 +3,6 @@ package cn.zenliu.java.mimic;
 import com.zaxxer.hikari.HikariConfig;
 import com.zaxxer.hikari.HikariDataSource;
 import lombok.val;
-import lombok.var;
 import org.jooq.DataType;
 import org.jooq.Field;
 import org.jooq.SQLDialect;
@@ -35,7 +34,7 @@ class MimicTest {
 
         Fluent identity(Long val);
 
-        @AsString
+        @Dao.AsString
         Long idOfUser();
 
         Fluent idOfUser(Long val);
@@ -51,7 +50,7 @@ class MimicTest {
     @Mimic.Dao.Entity
     public interface Flue extends Fluent {
 
-        @AsString
+        @Dao.AsString
         @Override
         Long identity();
 
@@ -114,7 +113,7 @@ class MimicTest {
         }
 
         default Flue fetchById(long id) {
-            return instance(ctx().selectFrom(table()).where(id().eq(id)).fetchOne().intoMap());
+            return instance(ctx().select(allFields()).from(table()).where(id().eq(id)).fetchOne().intoMap());
         }
 
         default void deleteAll() {
@@ -126,8 +125,9 @@ class MimicTest {
 
     static {
         cfg = new DefaultConfiguration();
-        cfg.setSQLDialect(SQLDialect.H2);
+        cfg.setSQLDialect(SQLDialect.DERBY);
         val hc = new HikariConfig();
+//        hc.setJdbcUrl("jdbc:derby:memory:test;create=true");
         hc.setJdbcUrl("jdbc:h2:mem:test");
         cfg.setDataSource(new HikariDataSource(hc));
     }
@@ -191,6 +191,7 @@ class MimicTest {
     void testDao() {
         final Consumer<FluentDao> fluentValidate = dao -> {
             System.out.println(dao);
+            System.out.println(dao.allFields());
             System.out.println(dao.DDL());
             val id = System.currentTimeMillis();
             val i = dao.instance(null);
@@ -208,7 +209,7 @@ class MimicTest {
             assertEquals(id, r.id());
             assertEquals(8L, r.identity());
             assertEquals(24L, r.idOfUser());
-            r = dao.queryConditional(s -> s.where(dao.id().eq(id)).orderBy(dao.identity()).limit(1))
+            r = dao.stream(s -> s.where(dao.id().eq(id)).orderBy(dao.identity()).limit(1))
                 .findFirst().orElseThrow(IllegalStateException::new);
             assertEquals(id, r.id());
             assertEquals(8L, r.identity());
@@ -216,6 +217,7 @@ class MimicTest {
         };
         final Consumer<FlueDao> flueValidate = dao -> {
             System.out.println(dao);
+            System.out.println(dao.allFields());
             System.out.println(dao.DDL());
             val id = System.currentTimeMillis();
             val i = dao.instance(null);
@@ -235,7 +237,7 @@ class MimicTest {
             assertEquals(8L, r.identity());
             assertEquals(24L, r.idOfUser());
             assertEquals(BigDecimal.TEN, r.user());
-            r = dao.queryConditional(s -> s.where(dao.id().eq(id)).orderBy(dao.identity()).limit(1))
+            r = dao.stream(s -> s.where(dao.id().eq(id)).orderBy(dao.identity()).limit(1))
                 .findFirst().orElseThrow(IllegalStateException::new);
             assertEquals(id, r.id());
             assertEquals(8L, r.identity());
@@ -252,10 +254,15 @@ class MimicTest {
         assertEquals(cfg, flue.configuration());
         fluentValidate.accept(fluent);
         flueValidate.accept(flue);
+
+        flue.ctx().dropTable(flue.table()).execute();
+        flue.ctx().dropTable(fluent.table()).execute();
+
         Mimic.ByteASM.enable();
         Mimic.Dao.ByteASM.enable();
-        fluent = fluentDao.get();
-        flue = flueDao.get();
+         fluent = fluentDao.get();
+         flue = flueDao.get();
+
         assertEquals(name1, seq(fluent.allFields()).map(Field::getName).sorted().toList());
         assertEquals(name2, seq(flue.allFields()).map(Field::getName).sorted().toList());
         assertEquals(cfg, fluent.configuration());
@@ -263,7 +270,8 @@ class MimicTest {
         fluentValidate.accept(fluent);
         flueValidate.accept(flue);
 
-
     }
+
+
 
 }

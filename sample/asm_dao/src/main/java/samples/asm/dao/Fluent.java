@@ -1,6 +1,7 @@
 package samples.asm.dao;
 
 import cn.zenliu.java.mimic.Mimic;
+import cn.zenliu.java.mimic.Mimic.Dao.AsString;
 import lombok.val;
 import org.jooq.Configuration;
 import org.jooq.Field;

@@ -1,6 +1,5 @@
 package sample.mini.server;
 
-import cn.zenliu.java.mimic.Config;
 import cn.zenliu.java.mimic.Mimic;
 import com.zaxxer.hikari.HikariConfig;
 import com.zaxxer.hikari.HikariDataSource;
@@ -141,7 +140,7 @@ public class Launcher {
     final static Blog.BlogDao dao;
 
     static {
-        Config.cacheSize.set(2);
+        System.setProperty("mimic.cache", "500");
         Mimic.ByteASM.enable();
         Mimic.Dao.ByteASM.enable();
         DefaultConfiguration cfg = new DefaultConfiguration();

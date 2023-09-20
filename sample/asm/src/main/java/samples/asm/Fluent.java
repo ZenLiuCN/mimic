@@ -16,7 +16,7 @@ public interface Fluent extends Mimic {
 
     Fluent identity(Long val);
 
-    @AsString
+    @Dao.AsString
     Long idOfUser();
 
     Fluent idOfUser(Long val);
@@ -34,7 +34,7 @@ public interface Fluent extends Mimic {
 
     @Dao.Entity
     public interface Flue extends Fluent {
-        @AsString
+        @Dao.AsString
         @Override
         Long identity();
 
