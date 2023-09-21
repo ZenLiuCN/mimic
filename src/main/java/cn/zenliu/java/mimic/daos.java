@@ -182,6 +182,7 @@ public final class daos {
                     return table;
                 }
 
+                @SuppressWarnings("unchecked")
                 @Override
                 public T instance(Map<String, Object> data) {
                     return (T) Mimic.newInstance(entity, toEntity(data));
@@ -232,7 +233,7 @@ public final class daos {
                     var typeName = type.getCanonicalName() + "$ASM";
                     final List<Class> faces = new ArrayList<>(Arrays.asList(type.getInterfaces()));
                     faces.add(0, type);
-                    var face = (List<Class<?>>) (List) faces;
+                    //var face = (List<Class<?>>) (List) faces;
                     DynamicType.Builder<?> builder = new ByteBuddy()
                         .subclass(AsmFactory.Factory.Base.class)
                         .implement(type)
